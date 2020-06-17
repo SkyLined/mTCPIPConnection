@@ -3,17 +3,19 @@
     "mMultiThreading"
   ], 
   "asOptionalProductNames": [
-    "mDebugOutput",
-    "mWindowsSDK",
+    "mDebugOutput", 
+    "mWindowsSDK", 
     "oConsole"
-  ],
-  "oProductVersion": "2020-06-17 08:11", 
+  ], 
+  "oProductVersion": "2020-06-17 16:51", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mTCPIPConnections", 
     "sType": "GitHub", 
     "sUserName": "SkyLined"
   }, 
+  "oTrialPeriodDuration": null, 
+  "sLicenseServerURL": null, 
   "sProductAuthor": "SkyLined", 
   "sProductName": "mTCPIPConnections", 
   "sProductURL": "https://github.com/SkyLined/mTCPIPConnections"
