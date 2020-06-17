@@ -1,5 +1,15 @@
 import select, socket, time;
 
+try: # mDebugOutput use is Optional
+  from mDebugOutput import *;
+except: # Do nothing if not available.
+  ShowDebugOutput = lambda fxFunction: fxFunction;
+  fShowDebugOutput = lambda sMessage: None;
+  fEnableDebugOutputForModule = lambda mModule: None;
+  fEnableDebugOutputForClass = lambda cClass: None;
+  fEnableAllDebugOutput = lambda: None;
+  cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
+
 from .cTCPIPException import cTCPIPException;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
@@ -9,7 +19,6 @@ from .fbExceptionMeansSocketInvalidAddress import fbExceptionMeansSocketInvalidA
 from .fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
 from .fbExceptionMeansSocketHasNoDataAvailable import fbExceptionMeansSocketHasNoDataAvailable;
 
-from mDebugOutput import ShowDebugOutput, fShowDebugOutput;
 from mMultiThreading import cLock, cWithCallbacks;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.

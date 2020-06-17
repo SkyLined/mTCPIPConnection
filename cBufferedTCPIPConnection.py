@@ -1,9 +1,18 @@
 import time;
 
+try: # mDebugOutput use is Optional
+  from mDebugOutput import *;
+except: # Do nothing if not available.
+  ShowDebugOutput = lambda fxFunction: fxFunction;
+  fShowDebugOutput = lambda sMessage: None;
+  fEnableDebugOutputForModule = lambda mModule: None;
+  fEnableDebugOutputForClass = lambda cClass: None;
+  fEnableAllDebugOutput = lambda: None;
+  cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
+
 from .cTCPIPConnection import cTCPIPConnection;
 
 from mMultiThreading import cLock;
-from mDebugOutput import ShowDebugOutput, fShowDebugOutput;
 # We cannot use select.select to wait for data to be available for reading
 # for secure connections, 
 gnAreBytesAvailableForReadingForSecureConnectionsPollIntervalInSeconds = 0.1; 
