@@ -31,7 +31,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
 
   def fSecure(oSelf, *txArguments, **dxArguments):
     assert len(oSelf.__sReadBuffer) == 0, \
-        "This connection cannot be secured because it has data in its read buffer!";
+        "This connection cannot be secured because it has data in its read buffer: %s!" % repr(oSelf.__sReadBuffer);
     return super(cBufferedTCPIPConnection, oSelf).fSecure(*txArguments, **dxArguments);
 
   @property
