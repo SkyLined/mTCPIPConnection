@@ -7,7 +7,7 @@
     "mWindowsSDK", 
     "oConsole"
   ], 
-  "oProductVersion": "2020-06-17 22:01", 
+  "oProductVersion": "2020-06-17 22:43", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mTCPIPConnections", 
