@@ -13,8 +13,13 @@ except: # Do nothing if not available.
 from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
+from .mTCPIPExceptions import *;
 
 from mMultiThreading import cLock, cThread, cWithCallbacks;
+try: # SSL support is optional.
+  from mSSL.mSSLExceptions import cSSLException as czSSLException;
+except:
+  czSSLException = None; # No SSL support
 
 class cTCPIPConnectionAcceptor(cWithCallbacks):
   def __init__(oSelf, fNewConnectionHandler, szHostname = None, uzPort = None, ozSSLContext = None, nzSecureTimeoutInSeconds = None):
@@ -22,6 +27,8 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oSelf.__sHostname = szHostname or socket.gethostname();
     oSelf.__uPort = uzPort or (443 if ozSSLContext else 80);
     oSelf.__ozSSLContext = ozSSLContext;
+    assert ozSSLContext is None or czSSLException is not None, \
+        "Cannot load SSL support";
     oSelf.__nzSecureTimeoutInSeconds = nzSecureTimeoutInSeconds;
     
     oSelf.__bStopping = False;
@@ -118,18 +125,23 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oNewConnection = oSelf.foCreateNewConnectionForPythonSocket(oPythonSocket);
     if oSelf.__ozSSLContext:
       try:
-        oNewConnection.fSecure(oSelf.__ozSSLContext, bCheckHostname = False, nzTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds);
-      except oNewConnection.cTimeoutException as oException:
-        fShowDebugOutput("Timeout while securing connection.");
-        oSelf.fFireCallbacks("connection cannot be secured", oNewConnection, "timeout");
-        return;
-      except oNewConnection.cShutdownException as oException:
-        fShowDebugOutput("Shut down while securing connection.");
-        oSelf.fFireCallbacks("connection cannot be secured", oNewConnection, "shutdown");
-        return;
-      except oNewConnection.cShutdownException as oException:
-        fShowDebugOutput("Disconnected while securing connection.");
-        oSelf.fFireCallbacks("connection cannot be secured", oNewConnection, "disconnected");
+        oNewConnection.fSecure(oSelf.__ozSSLContext, nzTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds);
+      except Exception as oException:
+        if isinstance(oException, cTimeoutException):
+          fShowDebugOutput("Timeout while securing connection.");
+          sCause = "timeout";
+        elif czSSLException and isinstance(oException, czSSLException):
+          fShowDebugOutput("SSL exception while securing connection.");
+          sCause = "SSL error";
+        elif isinstance(oException, cShutdownException):
+          fShowDebugOutput("Shut down while securing connection.");
+          sCause = "shutdown";
+        elif isinstance(oException, cDisconnectException):
+          fShowDebugOutput("Disconnected while securing connection.");
+          sCause = "disconnected";
+        else:
+          raise;
+        oSelf.fFireCallbacks("connection cannot be secured", oNewConnection, sCause);
         return;
       else:
         oSelf.fFireCallbacks("new secure connection", oNewConnection);

@@ -11,6 +11,7 @@ except: # Do nothing if not available.
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
 from .cTCPIPConnection import cTCPIPConnection;
+from .mTCPIPExceptions import *;
 
 from mMultiThreading import cLock;
 # We cannot use select.select to wait for data to be available for reading
@@ -59,7 +60,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSelf.__sReadBuffer = "";
     try:
       sBytes += super(cBufferedTCPIPConnection, oSelf).fsReadAvailableBytes();
-    except (oSelf.cShutdownException, oSelf.cDisconnectedException) as oException:
+    except (cShutdownException, cDisconnectedException) as oException:
       # If we have no bytes in the buffer and we cannot read bytes because the
       # connection was shut down or disconnected, throw the relevant exception.
       # Otherwise, we will return the bytes in the buffer.
@@ -79,9 +80,9 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns when the requested number of bytes is in the buffer.
     while len(oSelf.__sReadBuffer) < uMinNumberOfBytes:
-      nzTimeoutInSeconds = None if nzEndTime is None else nzEndTime - time.time();
+      nzTimeoutInSeconds = None if nzEndTime is None else nzEndTime - time.clock();
       if nzTimeoutInSeconds is not None and nzTimeoutInSeconds <= 0:
-        raise oSelf.cTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
+        raise cTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(nzTimeoutInSeconds);
       sBytesRead = super(cBufferedTCPIPConnection, oSelf).fsReadAvailableBytes();
       oSelf.__sReadBuffer += sBytesRead;
@@ -94,7 +95,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     # Reads data until at least the requested number of bytes is in the buffer.
     # Returns the requested number of bytes, which are removed from the buffer.
     # Can throw a timeout, shutdown or disconnected exception.
-    nzEndTime = time.time() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
+    nzEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
     oSelf.__fReadBytesIntoBuffer(uNumberOfBytes, nzEndTime, "reading bytes into buffer");
     sBytes = oSelf.__sReadBuffer[:uNumberOfBytes];
     oSelf.__sReadBuffer = oSelf.__sReadBuffer[uNumberOfBytes:];
@@ -107,7 +108,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     # the buffer.
     # If the marker cannot be found within the max number of bytes, return None
     # Can throw a timeout, shutdown or disconnected exception.
-    nzEndTime = time.time() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
+    nzEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
     uMarkerSize = len(sMarker);
     assert uzMaxNumberOfBytes is None or uzMaxNumberOfBytes >= uMarkerSize, \
         "It is impossible to find %d bytes without reading more than %d bytes" % (uMarkerSize, uzMaxNumberOfBytes);

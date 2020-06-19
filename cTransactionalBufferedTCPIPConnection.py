@@ -11,6 +11,7 @@ except: # Do nothing if not available.
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
+from mTCPIPExceptions import *;
 
 from mMultiThreading import cLock;
 
@@ -112,7 +113,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     # Returns True if a transaction was started, False if one was active.
     # Can throw a disconnected exception.
     if not oSelf.bConnected or oSelf.__bStopping:
-      raise oSelf.cDisconnectedException("Disconnected while %s" % sWhile, {"nzTimeoutInSeconds": nzTimeoutInSeconds});
+      raise cDisconnectedException("Disconnected while %s" % sWhile, {"nzTimeoutInSeconds": nzTimeoutInSeconds});
     oSelf.__oPropertiesLock.fAcquire();
     try:
       if oSelf.__oWaitingUntilSomeStateLock.bLocked:
@@ -123,7 +124,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         return False;
       assert oSelf.__oTransactionLock.fbAcquire(), \
           "Nobody is waiting for bytes to be available"
-      oSelf.__nzTransactionEndTime = time.time() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
+      oSelf.__nzTransactionEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
     oSelf.fFireCallbacks("transaction started", {"nzTimeoutInSeconds": nzTimeoutInSeconds});
@@ -152,7 +153,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       if bStartTransaction:
         assert oSelf.__oTransactionLock.fbAcquire(), \
             "Nobody is waiting for bytes to be available"
-        oSelf.__nzTransactionEndTime = time.time() + nzTransactionTimeoutInSeconds if nzTransactionTimeoutInSeconds is not None else None;
+        oSelf.__nzTransactionEndTime = time.clock() + nzTransactionTimeoutInSeconds if nzTransactionTimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
     if bStartTransaction:
@@ -168,7 +169,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     try:
       assert oSelf.bInTransaction, \
           "A transaction must be started before you can get its timeout!";
-      return max(0, oSelf.__nzTransactionEndTime - time.time()) if oSelf.__nzTransactionEndTime is not None else None;
+      return max(0, oSelf.__nzTransactionEndTime - time.clock()) if oSelf.__nzTransactionEndTime is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
   
@@ -184,12 +185,16 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__oPropertiesLock.fRelease();
     oSelf.fFireCallbacks("transaction ended");
   
-  def fSecure(oSelf, oSSLContext, bCheckHostname = False, nzTimeoutInSeconds = None):
+  def fSecure(oSelf,
+    oSSLContext,
+    nzTimeoutInSeconds = None
+  ):
     assert oSelf.fbStartTransaction(nzTimeoutInSeconds), \
         "Cannot start a transaction to secure the connection!?";
     try:
       return super(cTransactionalBufferedTCPIPConnection, oSelf).fSecure(
-        oSSLContext, bCheckHostname = bCheckHostname, nzTimeoutInSeconds = nzTimeoutInSeconds,
+        oSSLContext,
+        nzTimeoutInSeconds = nzTimeoutInSeconds,
       );
     finally:
       oSelf.fEndTransaction();
