@@ -4,11 +4,11 @@
   ], 
   "asOptionalProductNames": [
     "mDebugOutput", 
-    "mSSL",
+    "mSSL", 
     "mWindowsSDK", 
     "oConsole"
   ], 
-  "oProductVersion": "2020-06-17 22:43", 
+  "oProductVersion": "2020-06-22 15:51", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mTCPIPConnections", 
