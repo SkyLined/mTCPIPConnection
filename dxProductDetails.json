@@ -4,6 +4,7 @@
   ], 
   "asOptionalProductNames": [
     "mDebugOutput", 
+    "mSSL",
     "mWindowsSDK", 
     "oConsole"
   ], 
