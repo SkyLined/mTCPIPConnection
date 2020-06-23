@@ -15,16 +15,16 @@ class cTCPIPException(Exception):
     sDetails = str(oSelf.xDetails) if not hasattr(oSelf.xDetails, "fsToString") else oSelf.xDetails.fsToString();
     return "%s (%s)" % (oSelf.sMessage, sDetails);
 
-class cTimeoutException(cTCPIPException):
-  pass;
 class cConnectionRefusedException(cTCPIPException):
   pass;
-class cUnknownHostnameException(cTCPIPException):
+class cDisconnectedException(cTCPIPException):
   pass;
 class cInvalidAddressException(cTCPIPException):
   pass;
-class cShutdownException(cTCPIPException):
+class cTimeoutException(cTCPIPException):
   pass;
-class cDisconnectedException(cTCPIPException):
+class cUnknownHostnameException(cTCPIPException):
+  pass;
+class cShutdownException(cTCPIPException):
   pass;
 
