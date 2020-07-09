@@ -13,11 +13,11 @@ except: # Do nothing if not available.
 from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
-from .mTCPIPExceptions import *;
+from .mExceptions import *;
 
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 try: # SSL support is optional.
-  from mSSL.mSSLExceptions import cSSLException as czSSLException;
+  from mSSL.mExceptions import cSSLException as czSSLException;
 except:
   czSSLException = None; # No SSL support
 
@@ -127,13 +127,10 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
       try:
         oNewConnection.fSecure(oSelf.__ozSSLContext, nzTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds);
       except Exception as oException:
-        if isinstance(oException, cTimeoutException):
-          fShowDebugOutput("Timeout while securing connection.");
-          sCause = "timeout";
-        elif czSSLException and isinstance(oException, czSSLException):
+        if czSSLException and isinstance(oException, czSSLException):
           fShowDebugOutput("SSL exception while securing connection.");
           sCause = "SSL error";
-        elif isinstance(oException, cShutdownException):
+        elif isinstance(oException, cTCPIPConnectionShutdownException):
           fShowDebugOutput("Shut down while securing connection.");
           sCause = "shutdown";
         elif isinstance(oException, cDisconnectException):

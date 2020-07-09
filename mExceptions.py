@@ -1,7 +1,7 @@
 try: # SSL support is optional
-  from mSSL.mSSLExceptions import *;
+  from mSSL.mExceptions import *;
 except:
-  pass;
+  cSSLException = None; # can be used to detect support
 
 class cTCPIPException(Exception):
   def __init__(oSelf, sMessage, xDetails):
@@ -15,16 +15,18 @@ class cTCPIPException(Exception):
     sDetails = str(oSelf.xDetails) if not hasattr(oSelf.xDetails, "fsToString") else oSelf.xDetails.fsToString();
     return "%s (%s)" % (oSelf.sMessage, sDetails);
 
-class cConnectionRefusedException(cTCPIPException):
+class cTCPIPConnectionRefusedException(cTCPIPException):
   pass;
-class cDisconnectedException(cTCPIPException):
+class cTCPIPConnectionDisconnectedException(cTCPIPException):
   pass;
-class cInvalidAddressException(cTCPIPException):
+class cTCPIPInvalidAddressException(cTCPIPException):
   pass;
-class cTimeoutException(cTCPIPException):
+class cTCPIPConnectTimeoutException(cTCPIPException):
   pass;
-class cUnknownHostnameException(cTCPIPException):
+class cTCPIPDataTimeoutException(cTCPIPException):
   pass;
-class cShutdownException(cTCPIPException):
+class cDNSUnknownHostnameException(cTCPIPException):
+  pass;
+class cTCPIPConnectionShutdownException(cTCPIPException):
   pass;
 

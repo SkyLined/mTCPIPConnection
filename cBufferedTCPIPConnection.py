@@ -11,7 +11,7 @@ except: # Do nothing if not available.
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
 from .cTCPIPConnection import cTCPIPConnection;
-from .mTCPIPExceptions import *;
+from .mExceptions import *;
 
 from mMultiThreading import cLock;
 # We cannot use select.select to wait for data to be available for reading
@@ -60,7 +60,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSelf.__sReadBuffer = "";
     try:
       sBytes += super(cBufferedTCPIPConnection, oSelf).fsReadAvailableBytes();
-    except (cShutdownException, cDisconnectedException) as oException:
+    except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException) as oException:
       # If we have no bytes in the buffer and we cannot read bytes because the
       # connection was shut down or disconnected, throw the relevant exception.
       # Otherwise, we will return the bytes in the buffer.
@@ -82,7 +82,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     while len(oSelf.__sReadBuffer) < uMinNumberOfBytes:
       nzTimeoutInSeconds = None if nzEndTime is None else nzEndTime - time.clock();
       if nzTimeoutInSeconds is not None and nzTimeoutInSeconds <= 0:
-        raise cTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
+        raise cTCPIPDataTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(nzTimeoutInSeconds);
       sBytesRead = super(cBufferedTCPIPConnection, oSelf).fsReadAvailableBytes();
       oSelf.__sReadBuffer += sBytesRead;

@@ -11,7 +11,7 @@ except: # Do nothing if not available.
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
-from mTCPIPExceptions import *;
+from .mExceptions import *;
 
 from mMultiThreading import cLock;
 
@@ -113,7 +113,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     # Returns True if a transaction was started, False if one was active.
     # Can throw a disconnected exception.
     if not oSelf.bConnected or oSelf.__bStopping:
-      raise cDisconnectedException("Disconnected while %s" % sWhile, {"nzTimeoutInSeconds": nzTimeoutInSeconds});
+      raise cTCPIPConnectionDisconnectedException("Disconnected while %s" % sWhile, {"nzTimeoutInSeconds": nzTimeoutInSeconds});
     oSelf.__oPropertiesLock.fAcquire();
     try:
       if oSelf.__oWaitingUntilSomeStateLock.bLocked:
