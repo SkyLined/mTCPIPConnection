@@ -122,8 +122,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         # a transaction at this time.
         fShowDebugOutput("Waiting until some state; cannot start transaction");
         return False;
-      assert oSelf.__oTransactionLock.fbAcquire(), \
-          "Nobody is waiting for bytes to be available"
+      if not oSelf.__oTransactionLock.fbAcquire():
+        # Somebody has already started a transaction on this connection.
+        return False;
       oSelf.__nzTransactionEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
