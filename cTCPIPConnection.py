@@ -220,10 +220,12 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__oNonSecurePythonSocket.recv(0);
     except Exception as oException:
       if fbExceptionMeansSocketTimeout(oException):
-        pass; # Still connected
+        fShowDebugOutput("The socket still allows reading.");
       elif fbExceptionMeansSocketShutdown(oException):
+        fShowDebugOutput("The socket has been shut down for reading.");
         oSelf.__fHandleShutdownForReading(sWhile);
       elif fbExceptionMeansSocketDisconnected(oException):
+        fShowDebugOutput("The socket has been disconnected.");
         oSelf.__fHandleDisconnect();
       else:
         raise;
@@ -255,13 +257,15 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__oNonSecurePythonSocket.send("");
     except Exception as oException:
       if fbExceptionMeansSocketShutdown(oException):
+        fShowDebugOutput("The socket has been shut down for writing.");
         oSelf.__fHandleShutdownForWriting(sWhile);
       elif fbExceptionMeansSocketDisconnected(oException):
+        fShowDebugOutput("The socket has been disconnected.");
         oSelf.__fHandleDisconnect();
       else:
         raise;
-      return;
-    fShowDebugOutput("The socket still allows writing.");
+    else:
+      fShowDebugOutput("The socket still allows writing.");
   
   def __fHandleShutdownForWriting(oSelf, sWhile):
     oSelf.__bShouldAllowWriting = False;
