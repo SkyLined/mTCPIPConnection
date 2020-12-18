@@ -134,6 +134,22 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__oPropertiesLock.fRelease();
     oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
     return True;
+
+  @ShowDebugOutput
+  def fRestartTransaction(oSelf, n0TimeoutInSeconds = None, sWhile = "restarting transaction"):
+    # End the current transaction and start a new one, with a new timeout,
+    # but without unlocking the connection. As a result, no other transaction
+    # is allowed in between: the new transaction immediately follow the old one.
+    # Can throw a disconnected exception.
+    if not oSelf.bConnected or oSelf.__bStopping:
+      raise cTCPIPConnectionDisconnectedException("Disconnected while %s" % sWhile, {"n0TimeoutInSeconds": n0TimeoutInSeconds});
+    oSelf.fFireCallbacks("transaction ended");
+    oSelf.__oPropertiesLock.fAcquire();
+    try:
+      oSelf.__n0TransactionEndTime = time.clock() + n0TimeoutInSeconds if n0TimeoutInSeconds else None;
+    finally:
+      oSelf.__oPropertiesLock.fRelease();
+    oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
     return True;
   
   def __fbStartWaitingUntilSomeState(oSelf):
