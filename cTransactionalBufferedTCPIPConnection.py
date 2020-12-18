@@ -210,16 +210,22 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   def fSecure(oSelf,
     oSSLContext,
     n0TimeoutInSeconds = None,
+    bStartTransaction = True,
+    bEndTransaction = True,
   ):
-    assert oSelf.fbStartTransaction(nzTimeoutInSeconds), \
-        "Cannot start a transaction to secure the connection!?";
+    if bStartTransaction:
+      assert oSelf.fbStartTransaction(n0TimeoutInSeconds), \
+          "Cannot start a transaction to secure the connection!?";
+    else:
+      oSelf.fRestartTransaction(n0TimeoutInSeconds);
     try:
       return super(cTransactionalBufferedTCPIPConnection, oSelf).fSecure(
         oSSLContext,
         n0zTimeoutInSeconds = n0TimeoutInSeconds,
       );
     finally:
-      oSelf.fEndTransaction();
+      if bEndTransaction:
+        oSelf.fEndTransaction();
 
   @property
   def bStopping(oSelf):
