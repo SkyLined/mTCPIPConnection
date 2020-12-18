@@ -10,10 +10,11 @@ except: # Do nothing if not available.
   fEnableAllDebugOutput = lambda: None;
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
+from mMultiThreading import cLock;
+
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
 from .mExceptions import *;
-
-from mMultiThreading import cLock;
+from .mNotProvided import *;
 
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
@@ -22,8 +23,8 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   @ShowDebugOutput
   def __faoWaitUntilSomeStateAndStartTransactions(cClass,
     aoConnections, sState,
-    faoWait,
-    nzWaitTimeoutInSeconds, nzTransactionTimeoutInSeconds
+    faoWaitUntilSomeState,
+    n0WaitTimeoutInSeconds, n0TransactionTimeoutInSeconds
   ):
     # Keep track of which connections are in the waiting state and which
     # connects we have started transactions on, so we can undo this if an
@@ -37,12 +38,15 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
             "Cannot wait until %s on %s" % (sState, repr(oConnection));
         else:
           aoConnectionsWaitingForSomeState.append(oConnection);
-      aoConnectionsInState = faoWait(aoConnectionsWaitingForSomeState, nzWaitTimeoutInSeconds);
+      aoConnectionsInSomeState = faoWaitUntilSomeState(aoConnectionsWaitingForSomeState, n0WaitTimeoutInSeconds);
       for oConnection in aoConnectionsWaitingForSomeState[:]:
         # We iterate over a copy because we modify the list, which could cause items to be skipped otherwise.
-        bStartTransaction = oConnection in aoConnectionsInState;
+        bStartTransaction = oConnection in aoConnectionsInSomeState;
         aoConnectionsWaitingForSomeState.remove(oConnection);
-        oConnection.__fEndWaitingUntilSomeState(bStartTransaction = bStartTransaction, nzTransactionTimeoutInSeconds = nzTransactionTimeoutInSeconds);
+        oConnection.__fEndWaitingUntilSomeState(
+          bStartTransaction = bStartTransaction,
+          n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds
+        );
         if bStartTransaction:
           aoConnectionsWithStartedTransactions.append(oConnection);
     except Exception as oException:
@@ -55,32 +59,32 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilBytesAreAvailableForReadingAndStartTransactions(cClass, aoConnections, nzWaitTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None):
+  def faoWaitUntilBytesAreAvailableForReadingAndStartTransactions(cClass, aoConnections, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
     return cClass.__faoWaitUntilSomeStateAndStartTransactions(
       aoConnections, sState = "bytes are available for reading",
       faoWait = super(cTransactionalBufferedTCPIPConnection, cClass).faoWaitUntilBytesAreAvailableForReading,
-      nzWaitTimeoutInSeconds = nzWaitTimeoutInSeconds,
-      nzTransactionTimeoutInSeconds = nzTransactionTimeoutInSeconds,
+      n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
+      n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds,
     );
   
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilTransactionsCanBeStartedAndStartTransactions(cClass, aoConnections, nzWaitTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None):
+  def faoWaitUntilTransactionsCanBeStartedAndStartTransactions(cClass, aoConnections, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
     return cClass.__faoWaitUntilSomeStateAndStartTransactions(
       aoConnections, sState = "transaction can be started",
       faoWait = cTransactionalBufferedTCPIPConnection.__faoWaitUntilTransactionCanBeStarted,
-      nzWaitTimeoutInSeconds = nzWaitTimeoutInSeconds,
-      nzTransactionTimeoutInSeconds = nzTransactionTimeoutInSeconds,
+      n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
+      n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds,
     );
   @classmethod
   @ShowDebugOutput
-  def __faoWaitUntilTransactionCanBeStarted(oSelf, aoConnections, nzTimeoutInSeconds):
+  def __faoWaitUntilTransactionCanBeStarted(oSelf, aoConnections, n0TimeoutInSeconds):
     aoUnlockedTransactionLocks = cLock.faoWaitUntilLocksAreUnlocked(
       aoLocks = [
         oConnection.__oTransactionLock
         for oConnection in aoConnections
       ],
-      nzTimeoutInSeconds = nzTimeoutInSeconds,
+      n0TimeoutInSeconds = n0TimeoutInSeconds,
     );
     return [
       oConnection
@@ -94,7 +98,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     # multiple read/writes on properties of this instance as a single operation.
     oSelf.__oPropertiesLock = cLock(
       "%s.__oPropertiesLock" % oSelf.__class__.__name__,
-      nzDeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
+      n0DeadlockTimeoutInSeconds = gnDeadlockTimeoutInSeconds
     );
     oSelf.__oWaitingUntilSomeStateLock = cLock(
       "%s.__oWaitingUntilSomeStateLock" % oSelf.__class__.__name__
@@ -102,18 +106,18 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.__oTransactionLock = cLock(
       "%s.__oTransactionLock" % oSelf.__class__.__name__
     );
-    oSelf.__nzTransactionEndTime = None;
+    oSelf.__n0TransactionEndTime = None;
     super(cTransactionalBufferedTCPIPConnection, oSelf).__init__(*txArguments, **dxArguments);
     oSelf.fAddEvents("transaction started", "transaction ended");
   
   @ShowDebugOutput
-  def fbStartTransaction(oSelf, nzTimeoutInSeconds = None, sWhile = "starting transaction"):
+  def fbStartTransaction(oSelf, n0TimeoutInSeconds = None, sWhile = "starting transaction"):
     # Start a transaction if no transaction is currently active and no one is
     # waiting for bytes to be available for reading to start a transaction.
     # Returns True if a transaction was started, False if one was active.
     # Can throw a disconnected exception.
     if not oSelf.bConnected or oSelf.__bStopping:
-      raise cTCPIPConnectionDisconnectedException("Disconnected while %s" % sWhile, {"nzTimeoutInSeconds": nzTimeoutInSeconds});
+      raise cTCPIPConnectionDisconnectedException("Disconnected while %s" % sWhile, {"n0TimeoutInSeconds": n0TimeoutInSeconds});
     oSelf.__oPropertiesLock.fAcquire();
     try:
       if oSelf.__oWaitingUntilSomeStateLock.bLocked:
@@ -125,10 +129,11 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       if not oSelf.__oTransactionLock.fbAcquire():
         # Somebody has already started a transaction on this connection.
         return False;
-      oSelf.__nzTransactionEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
+      oSelf.__n0TransactionEndTime = time.clock() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
-    oSelf.fFireCallbacks("transaction started", {"nzTimeoutInSeconds": nzTimeoutInSeconds});
+    oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
+    return True;
     return True;
   
   def __fbStartWaitingUntilSomeState(oSelf):
@@ -147,30 +152,30 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     finally:
       oSelf.__oPropertiesLock.fRelease();
     return True;
-  def __fEndWaitingUntilSomeState(oSelf, bStartTransaction, nzTransactionTimeoutInSeconds = None):
+  def __fEndWaitingUntilSomeState(oSelf, bStartTransaction, n0TransactionTimeoutInSeconds = None):
     oSelf.__oPropertiesLock.fbAcquire();
     try:
       oSelf.__oWaitingUntilSomeStateLock.fRelease();
       if bStartTransaction:
         assert oSelf.__oTransactionLock.fbAcquire(), \
             "Nobody is waiting for bytes to be available"
-        oSelf.__nzTransactionEndTime = time.clock() + nzTransactionTimeoutInSeconds if nzTransactionTimeoutInSeconds is not None else None;
+        oSelf.__n0TransactionEndTime = time.clock() + n0TransactionTimeoutInSeconds if n0TransactionTimeoutInSeconds else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
     if bStartTransaction:
-      oSelf.fFireCallbacks("transaction started", {"nzTransactionTimeoutInSeconds": nzTransactionTimeoutInSeconds});
+      oSelf.fFireCallbacks("transaction started", {"n0TransactionTimeoutInSeconds": n0TransactionTimeoutInSeconds});
   
   @property
   def bInTransaction(oSelf):
     return oSelf.__oTransactionLock.bLocked;
   
   @property
-  def nzTransactionTimeoutInSeconds(oSelf):
+  def n0TransactionTimeoutInSeconds(oSelf):
     oSelf.__oPropertiesLock.fbAcquire();
     try:
       assert oSelf.bInTransaction, \
           "A transaction must be started before you can get its timeout!";
-      return max(0, oSelf.__nzTransactionEndTime - time.clock()) if oSelf.__nzTransactionEndTime is not None else None;
+      return max(0, oSelf.__n0TransactionEndTime - time.clock()) if oSelf.__n0TransactionEndTime is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
   
@@ -181,21 +186,21 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.__oPropertiesLock.fbAcquire();
     try:
       oSelf.__oTransactionLock.fRelease();
-      oSelf.__nzTransactionEndTime = None;
+      oSelf.__n0TransactionEndTime = None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
     oSelf.fFireCallbacks("transaction ended");
   
   def fSecure(oSelf,
     oSSLContext,
-    nzTimeoutInSeconds = None
+    n0TimeoutInSeconds = None,
   ):
     assert oSelf.fbStartTransaction(nzTimeoutInSeconds), \
         "Cannot start a transaction to secure the connection!?";
     try:
       return super(cTransactionalBufferedTCPIPConnection, oSelf).fSecure(
         oSSLContext,
-        nzTimeoutInSeconds = nzTimeoutInSeconds,
+        n0zTimeoutInSeconds = n0TimeoutInSeconds,
       );
     finally:
       oSelf.fEndTransaction();

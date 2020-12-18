@@ -21,7 +21,7 @@ def fDisconnectAndWait(oConnection):
   oConnection.fDisconnect();
   fEndTransactionIfPossible(oConnection);
   oConsole.fOutput("%s: Waiting for connection to terminate..." % oConnection);
-  assert oConnection.fbWait(nzTimeoutInSeconds = 1), \
+  assert oConnection.fbWait(nTimeoutInSeconds = 1), \
       "%s did not disconnect in a reasonable time!?";
 
 def fStartTransactionIfPossible(oConnection):
@@ -69,7 +69,7 @@ def fTestConnectionAndAcceptor(cConnection, cConnectionAcceptor):
   oConsole.fOutput("Client side: Ended connection %s." % oConnection);
 
   oConsole.fOutput("Waiting for acceptor %s to stop..." % oAcceptor);
-  assert oAcceptor.fbWait(nzTimeoutInSeconds = 1), \
+  assert oAcceptor.fbWait(nTimeoutInSeconds = 1), \
       "Acceptor did not terminate in a reasonable time!?";
 
   oConsole.fOutput("Done.");

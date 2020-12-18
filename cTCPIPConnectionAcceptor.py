@@ -14,22 +14,23 @@ from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .mExceptions import *;
+from .mNotProvided import *;
 
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 try: # SSL support is optional.
-  from mSSL.mExceptions import cSSLException as czSSLException;
+  from mSSL.mExceptions import cSSLException as c0SSLException;
 except:
-  czSSLException = None; # No SSL support
+  c0SSLException = None; # No SSL support
 
 class cTCPIPConnectionAcceptor(cWithCallbacks):
-  def __init__(oSelf, fNewConnectionHandler, szHostname = None, uzPort = None, ozSSLContext = None, nzSecureTimeoutInSeconds = None):
+  def __init__(oSelf, fNewConnectionHandler, szHostname = zNotProvided, uzPort = zNotProvided, o0SSLContext = None, n0zSecureTimeoutInSeconds = zNotProvided):
     oSelf.__fNewConnectionHandler = fNewConnectionHandler;
-    oSelf.__sHostname = szHostname or socket.gethostname();
-    oSelf.__uPort = uzPort or (443 if ozSSLContext else 80);
-    oSelf.__ozSSLContext = ozSSLContext;
-    assert ozSSLContext is None or czSSLException is not None, \
+    oSelf.__sHostname = fxGetFirstProvidedValue(szHostname, socket.gethostname());
+    oSelf.__uPort = fxGetFirstProvidedValue(uzPort, 443 if o0SSLContext else 80);
+    oSelf.__o0SSLContext = o0SSLContext;
+    assert o0SSLContext is None or czSSLException is not None, \
         "Cannot load SSL support";
-    oSelf.__nzSecureTimeoutInSeconds = nzSecureTimeoutInSeconds;
+    oSelf.__n0zSecureTimeoutInSeconds = n0zSecureTimeoutInSeconds;
     
     oSelf.__bStopping = False;
     oSelf.__oTerminatedLock = cLock(
@@ -58,11 +59,11 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   def uPort(oSelf):
     return oSelf.__uPort;
   @property
-  def ozSSLContext(oSelf):
-    return oSelf.__ozSSLContext;
+  def o0SSLContext(oSelf):
+    return oSelf.__o0SSLContext;
   @property
   def bSecure(oSelf):
-    return oSelf.__ozSSLContext is not None;
+    return oSelf.__o0SSLContext is not None;
   @property
   def sIPAddress(oSelf):
     return oSelf.__oPythonSocket.getsockname()[0];
@@ -89,8 +90,8 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oSelf.__oPythonSocket.close();
 
   @ShowDebugOutput
-  def fbWait(oSelf, nzTimeoutInSeconds):
-    return oSelf.__oTerminatedLock.fbWait(nzTimeoutInSeconds);
+  def fbWait(oSelf, nTimeoutInSeconds):
+    return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
   def foCreateNewConnectionForPythonSocket(oSelf, oPythonSocket):
     return cTCPIPConnection(oPythonSocket, bCreatedLocally = False);
@@ -123,11 +124,11 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   
   def __fHandleNewPythonSocket(oSelf, oPythonSocket):
     oNewConnection = oSelf.foCreateNewConnectionForPythonSocket(oPythonSocket);
-    if oSelf.__ozSSLContext:
+    if oSelf.__o0SSLContext:
       try:
-        oNewConnection.fSecure(oSelf.__ozSSLContext, nzTimeoutInSeconds = oSelf.__nzSecureTimeoutInSeconds);
+        oNewConnection.fSecure(oSelf.__o0SSLContext, n0zTimeoutInSeconds = oSelf.__n0zSecureTimeoutInSeconds);
       except Exception as oException:
-        if czSSLException and isinstance(oException, czSSLException):
+        if c0SSLException and isinstance(oException, c0SSLException):
           fShowDebugOutput("SSL exception while securing connection.");
           sCause = "SSL error";
         elif isinstance(oException, cTCPIPConnectionShutdownException):

@@ -12,8 +12,8 @@ except: # Do nothing if not available.
 
 from .cTCPIPConnection import cTCPIPConnection;
 from .mExceptions import *;
+from .mNotProvided import *;
 
-from mMultiThreading import cLock;
 # We cannot use select.select to wait for data to be available for reading
 # for secure connections, 
 gnAreBytesAvailableForReadingForSecureConnectionsPollIntervalInSeconds = 0.1; 
@@ -30,10 +30,13 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSelf.__sReadBuffer = "";
     super(cBufferedTCPIPConnection, oSelf).__init__(*txArguments, **dxArguments);
 
-  def fSecure(oSelf, *txArguments, **dxArguments):
+  def fSecure(oSelf, oSSLContext, n0zTimeoutInSeconds = zNotProvided):
     assert len(oSelf.__sReadBuffer) == 0, \
         "This connection cannot be secured because it has data in its read buffer: %s!" % repr(oSelf.__sReadBuffer);
-    return super(cBufferedTCPIPConnection, oSelf).fSecure(*txArguments, **dxArguments);
+    return super(cBufferedTCPIPConnection, oSelf).fSecure(
+      oSSLContext,
+      n0zTimeoutInSeconds = n0zTimeoutInSeconds
+    );
 
   @property
   def bShouldAllowReading(oSelf):
@@ -75,15 +78,18 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSelf.__sReadBuffer = "";
     return sBytes + super(cBufferedTCPIPConnection, oSelf).fsReadBytesUntilDisconnected(*txArguments, **dxArguments);
   
-  def __fReadBytesIntoBuffer(oSelf, uMinNumberOfBytes, nzEndTime, sWhile):
+  def __fReadBytesIntoBuffer(oSelf, uMinNumberOfBytes, n0EndTime, sWhile):
     # Reads data until at least the requested number of bytes is in the buffer.
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns when the requested number of bytes is in the buffer.
     while len(oSelf.__sReadBuffer) < uMinNumberOfBytes:
-      nzTimeoutInSeconds = None if nzEndTime is None else nzEndTime - time.clock();
-      if nzTimeoutInSeconds is not None and nzTimeoutInSeconds <= 0:
-        raise cTCPIPDataTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
-      super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(nzTimeoutInSeconds);
+      if n0EndTime:
+        n0TimeoutInSeconds = n0EndTime - time.clock();
+        if n0TimeoutInSeconds <= 0:
+          raise cTCPIPDataTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
+      else:
+        n0TimeoutInSeconds = None;
+      super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds);
       sBytesRead = super(cBufferedTCPIPConnection, oSelf).fsReadAvailableBytes();
       oSelf.__sReadBuffer += sBytesRead;
       oSelf.fFireCallbacks("bytes read", {"sBytes": sBytesRead});
@@ -91,37 +97,37 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
         (uMinNumberOfBytes, len(oSelf.__sReadBuffer)));
   
   @ShowDebugOutput
-  def fsReadBytes(oSelf, uNumberOfBytes, nzTimeoutInSeconds = None):
+  def fsReadBytes(oSelf, uNumberOfBytes, n0TimeoutInSeconds = None):
     # Reads data until at least the requested number of bytes is in the buffer.
     # Returns the requested number of bytes, which are removed from the buffer.
     # Can throw a timeout, shutdown or disconnected exception.
-    nzEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
-    oSelf.__fReadBytesIntoBuffer(uNumberOfBytes, nzEndTime, "reading bytes into buffer");
+    n0EndTime = time.clock() + n0TimeoutInSeconds if n0TimeoutInSeconds else None;
+    oSelf.__fReadBytesIntoBuffer(uNumberOfBytes, n0EndTime, "reading bytes into buffer");
     sBytes = oSelf.__sReadBuffer[:uNumberOfBytes];
     oSelf.__sReadBuffer = oSelf.__sReadBuffer[uNumberOfBytes:];
     return sBytes;
   
   @ShowDebugOutput
-  def fszReadUntilMarker(oSelf, sMarker, uzMaxNumberOfBytes = None, nzTimeoutInSeconds = None):
+  def fs0ReadUntilMarker(oSelf, sMarker, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None):
     # Reads data into the buffer until the marker is found in the buffer or the
     # Returns the bytes up to and including the marker, which are removed from
     # the buffer.
     # If the marker cannot be found within the max number of bytes, return None
     # Can throw a timeout, shutdown or disconnected exception.
-    nzEndTime = time.clock() + nzTimeoutInSeconds if nzTimeoutInSeconds is not None else None;
+    n0EndTime = time.clock() + n0TimeoutInSeconds if n0TimeoutInSeconds else None;
     uMarkerSize = len(sMarker);
-    assert uzMaxNumberOfBytes is None or uzMaxNumberOfBytes >= uMarkerSize, \
-        "It is impossible to find %d bytes without reading more than %d bytes" % (uMarkerSize, uzMaxNumberOfBytes);
+    assert u0MaxNumberOfBytes is None or u0MaxNumberOfBytes >= uMarkerSize, \
+        "It is impossible to find %d bytes without reading more than %d bytes" % (uMarkerSize, u0MaxNumberOfBytes);
     uNextFindStartIndex = 0;
     while 1:
       # We need to read enough bytes to be able to start another search (i.e. one).
       uMinNumberOfBytesNeededInBuffer = uNextFindStartIndex + uMarkerSize;
-      oSelf.__fReadBytesIntoBuffer(uMinNumberOfBytesNeededInBuffer, nzEndTime, "reading bytes into buffer until a marker is found");
+      oSelf.__fReadBytesIntoBuffer(uMinNumberOfBytesNeededInBuffer, n0EndTime, "reading bytes into buffer until a marker is found");
       # If the marker can be found stop looking.
-      uStartIndex = oSelf.__sReadBuffer.find(sMarker, uNextFindStartIndex, uzMaxNumberOfBytes);
+      uStartIndex = oSelf.__sReadBuffer.find(sMarker, uNextFindStartIndex, u0MaxNumberOfBytes);
       if uStartIndex != -1:
         uEndIndex = uStartIndex + uMarkerSize;
-        assert uzMaxNumberOfBytes is None or uEndIndex <= uzMaxNumberOfBytes, \
+        assert u0MaxNumberOfBytes is None or uEndIndex <= u0MaxNumberOfBytes, \
             "The code above should have only found the marker within the max number of bytes, but it was found outside it!";
         sBytes = oSelf.__sReadBuffer[:uEndIndex];
         oSelf.__sReadBuffer = oSelf.__sReadBuffer[uEndIndex:];
@@ -130,7 +136,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
       uNextFindStartIndex = len(oSelf.__sReadBuffer) - uMarkerSize + 1;
       uNextFindEndIndex = uNextFindStartIndex + uMarkerSize;
       # If the marker cannot be found within the max number of bytes, return None;
-      if uzMaxNumberOfBytes is not None and uNextFindEndIndex > uzMaxNumberOfBytes:
+      if u0MaxNumberOfBytes is not None and uNextFindEndIndex > u0MaxNumberOfBytes:
         return None;
   
   def fShutdownForReading(oSelf):
