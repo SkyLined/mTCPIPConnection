@@ -3,6 +3,7 @@
     "mMultiThreading"
   ], 
   "asOptionalProductNames": [
+    "cFileSystemItem",
     "mDebugOutput", 
     "mSSL", 
     "mWindowsSDK", 

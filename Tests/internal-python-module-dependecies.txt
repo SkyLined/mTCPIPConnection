@@ -1,14 +1,17 @@
 base64
 binascii
+bz2
 collections
 contextlib
 cStringIO
 ctypes
 dis
+fnmatch
 gc
 heapq
 imp
 inspect
+io
 itertools
 keyword
 msvcrt
@@ -16,6 +19,7 @@ Queue
 opcode
 platform
 select
+shutil
 socket
 ssl
 string
@@ -28,3 +32,5 @@ threading
 time
 token
 tokenize
+zipfile
+zlib
