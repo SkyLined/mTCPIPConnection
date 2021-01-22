@@ -269,7 +269,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       return False;
     try:
       fShowDebugOutput("Start waiting for bytes to be available for reading...");
-      oSelf.fWaitUntilBytesAreAvailableForReading(nzWaitTimeoutInSeconds);
+      oSelf.fWaitUntilBytesAreAvailableForReading(n0WaitTimeoutInSeconds);
     except:
       fShowDebugOutput("Stop waiting for bytes to be available for reading.");
       oSelf.__fEndWaitingUntilSomeState(bStartTransaction = False);
