@@ -1,4 +1,7 @@
-import select, socket, ssl, threading, time;
+import os, select, socket, ssl, sys, threading, time;
+# Add main folder to path
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."));
+
 from fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
@@ -90,77 +93,22 @@ def fTestSockets(bSecure, sState, bTestClient = True, bTestServer = True, bCanWa
     else:
       if bTestServer: sServerLog += " W";
     try:
-      assert (oSecureClientSocket or oClientSocket).recv(10) != "", "";
+      sData = (oSecureClientSocket or oClientSocket).recv(10);
     except Exception as oException:
-      if bTestClient: sClientLog += " rXXX";
+      if bTestClient: sClientLog += " Read(10) => Exception";
     else:
-      if bTestClient: sClientLog += " R";
+      if bTestClient: sClientLog += " Read(10) => %d bytes" % (len(sData),);
     try:
-      assert (oSecureServerSocket or oServerSocket).recv(10) != "", "";
+      sData = (oSecureServerSocket or oServerSocket).recv(10);
     except Exception as oException:
-      if bTestServer: sServerLog += " rXXX";
+      if bTestServer: sServerLog += " Read(10) => Exception";
     else:
-      if bTestServer: sServerLog += " R";
+      if bTestServer: sServerLog += " Read(10) => %d bytes" % (len(sData),);
   finally:
     print (",--- %s %s " % ("secure" if bSecure else "non-secure", sState)).ljust(80, "-");
     if bTestClient: print "| " + sClientLog;
     if bTestServer: print "| " + sServerLog;
     print "'".ljust(80, "-");
-
-def fsTestSocketSelect(oSocket):
-  if oSocket is None: return "---";
-  try:
-    bR, bW, bX = [len(ax) == 1 for ax in select.select([oSocket], [oSocket], [oSocket], 0)];
-  except Exception as oException:
-    if fbExceptionMeansSocketDisconnected(oException):
-      return "XXX";
-    if fbExceptionMeansSocketShutdown(oException):
-      return "...";
-    return "*** => %s" % repr(oException);
-  else:
-    return "%s%s%s" % ("R" if bR else ".", "W" if bW else ".", "X" if bX else ".");
-
-def fsTestSocketRecv(oSocket):
-  try:
-    sReceviedBytes = oSocket.recv(uReceiveBytes);
-  except Exception as oException:
-    if fbExceptionMeansSocketTimeout(oException):
-      return "timeout".ljust(8);
-    if fbExceptionMeansSocketDisconnected(oException):
-      return "XXX".ljust(8);
-    if fbExceptionMeansSocketShutdown(oException):
-      return "shutdown".ljust(8);
-    return "*** %s" % repr(oException);
-  else:
-    return ("%d bytes" % len(sReceviedBytes)).ljust(8);
-
-def fsTestSocketSend(oSocket):
-  uBytesSent = None;
-  try:
-    oSocket.settimeout(0);
-    uSentBytes = oSocket.send(sSendBytes);
-  except Exception as oException:
-    if fbExceptionMeansSocketTimeout(oException):
-      return "timeout".ljust(8);
-    if fbExceptionMeansSocketDisconnected(oException):
-      return "XXX".ljust(8);
-    if fbExceptionMeansSocketShutdown(oException):
-      return "shutdown".ljust(8);
-    return "*** => %s" % repr(oException);
-  else:
-    return ("%d bytes" % uSentBytes).ljust(8);
-
-def fsTestSocketFileNo(oSocket):
-  if oSocket is None: return "---";
-  try:
-    oSocket.settimeout(0);
-    uFileNo = oSocket.fileno();
-  except Exception as oException:
-    if fbExceptionMeansSocketDisconnected(oException):
-      return "XXX";
-    return "*** => %s" % repr(oException);
-  else:
-    return "%3d" % uFileNo;
 
 def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
   sLog = "";
@@ -170,17 +118,17 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
     sData = oNonSecureSocket.recv(0);
   except Exception as oException:
     if fbExceptionMeansSocketTimeout(oException):
-      sLog += "R0:T|";
+      sLog += "Read(0):Timeout  ";
       bIsOpenForReading = True;
     elif fbExceptionMeansSocketShutdown(oException):
-      sLog += "R0:S|";
+      sLog += "Read(0):Shutdown ";
       bIsOpenForReading = False;
     elif fbExceptionMeansSocketDisconnected(oException):
       return "xx:%sR0:X" % sLog;
     else:
       raise;
   else:
-    sLog += "R0:0|";
+    sLog += "Read(0):Ok       ";
     bIsOpenForReading = True;
   
   nStartTime = time.time();
@@ -193,14 +141,14 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
       "Unexpected exception";
   assert bCanWaitForReading or time.time() < nStartTime + nWaitTimeout, \
       "Waiting despite this is not expected."
-  sLog += "S:R|" if bDataAvailable else "S:r|";
+  sLog += "Select(RX):[R] " if bDataAvailable else "Select(RX):[]  ";
   if bDataAvailable:
     try:
       oSocket.settimeout(0);
       sData = oSocket.recv(1);
     except socket.error as oException:
       if fbExceptionMeansSocketShutdown(oException):
-        sLog += "R1:S|";
+        sLog += "Read(1):Shutdown ";
         bIsOpenForReading = False;
       elif fbExceptionMeansSocketDisconnected(oException):
         return "xx:%sR1:X" % sLog;
@@ -208,9 +156,9 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
         raise;
     else:
       if len(sData) == 1:
-        sLog += "R1:1|";
+        sLog += "Read(1):Ok       ";
       else:
-        sLog += "R1:0|";
+        sLog += "Read(1):''       ";
         bIsOpenForReading = False;
   bUnused, bIsOpenForWriting, bException = [
     len(aoSocket) == 1
@@ -218,21 +166,29 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
   ];
   assert not bException, \
       "Unexpected exception";
-  sLog += "S:W|" if bIsOpenForWriting else "S:w|";
+  sLog += "Select(WX):[W] " if bIsOpenForWriting else "Select(WX):[]  ";
   if bIsOpenForWriting:
     try:
       oNonSecureSocket.send("");
     except socket.error as oException:
       if fbExceptionMeansSocketShutdown(oException):
-        sLog += "W0:S|";
+        sLog += "Write(''):Shutdown ";
         bIsOpenForWriting = False;
       elif fbExceptionMeansSocketDisconnected(oException):
         return "xx:%sW0:X" % sLog;
       else:
         raise;
     else:
-      sLog += "W0:0|";
-  return "%s%s:%s" % ("R" if bIsOpenForReading else "x", "W" if bIsOpenForWriting else "x", sLog);
+      sLog += "Write(''):Ok       ";
+  return "%s => %s" % (
+    sLog, (
+      "Open" if bIsOpenForReading else
+      "Write-only"
+    ) if bIsOpenForWriting else (
+      "Read-only" if bIsOpenForReading else
+      "Closed"
+    )
+  );
 
 for bSecure in (False, True):
   foCreateSockets(bSecure, False);

@@ -42,6 +42,9 @@ try:
     else:
       raise AssertionError("Unknown argument %s" % sArgument);
   
+  from fRunTestsOnTCPIPConnectionClasses import fRunTestsOnTCPIPConnectionClasses;
+  fRunTestsOnTCPIPConnectionClasses(oConsole);
+  
   from fTestConnectionAndAcceptor import fTestConnectionAndAcceptor;
   
   oConsole.fOutput("=== Testing TCP/IP Connections ".ljust(80, "="));
