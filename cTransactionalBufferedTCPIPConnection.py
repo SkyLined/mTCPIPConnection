@@ -50,6 +50,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         if bStartTransaction:
           aoConnectionsWithStartedTransactions.append(oConnection);
     except Exception as oException:
+      fShowDebugOutput("Exception: %s(%s)" % (oException.__class__.__name__, oException));
       for oConnection in aoConnectionsWaitingForSomeState:
         oConnection.__fEndWaitingUntilSomeState(bStartTransaction = False);
       for oConnection in aoConnectionsWithStartedTransactions:
