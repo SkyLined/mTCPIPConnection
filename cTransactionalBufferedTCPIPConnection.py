@@ -210,10 +210,17 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   def fSecure(oSelf,
     oSSLContext,
-    n0TimeoutInSeconds = None,
+    n0zTimeoutInSeconds = zNotProvided,
     bStartTransaction = True,
     bEndTransaction = True,
   ):
+    # We'll (re-)start the transaction, but we do not know the default timeout for securing the connection.
+    # However, if we also end the connection, we can use None for the transaction timeout as `fSecure` should
+    # detect and report the timeout, so applying a timeout to the transaction would be superfluous. However,
+    # if the caller wants to leave the transaction open, they MUST provide a value for `n0zTimeoutInSeconds`:
+    assert bEndTransaction or fbIsProvided(n0zTimeoutInSeconds), \
+        "Cannot use `n0zTimeoutInSeconds = zNotProvided` combined with `bEndTransaction = False`";
+    n0TimeoutInSeconds = fx0GetProvidedValueOrNone(n0zTimeoutInSeconds);
     if bStartTransaction:
       assert oSelf.fbStartTransaction(n0TimeoutInSeconds), \
           "Cannot start a transaction to secure the connection!?";
@@ -222,12 +229,12 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     try:
       return super(cTransactionalBufferedTCPIPConnection, oSelf).fSecure(
         oSSLContext,
-        n0zTimeoutInSeconds = n0TimeoutInSeconds,
+        n0zTimeoutInSeconds = n0zTimeoutInSeconds,
       );
     finally:
       if bEndTransaction:
         oSelf.fEndTransaction();
-
+  
   @property
   def bStopping(oSelf):
     return oSelf.__bStopping or super(cTransactionalBufferedTCPIPConnection, oSelf).bStopping;
@@ -240,9 +247,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       try:
         super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
       finally:
-        oSelf.__nzTransactionEndTime = None;
+        oSelf.__n0TransactionEndTime = None;
         oSelf.__oTransactionLock.fRelease();
-
+  
   @ShowDebugOutput
   def fTerminate(oSelf):
     # fTerminate normally calls fDisconnect but fDisconnect requires a
@@ -251,7 +258,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     super(cTransactionalBufferedTCPIPConnection, oSelf).fDisconnect();
   
   @ShowDebugOutput
-  def fbWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf, nzWaitTimeoutInSeconds = None, nzTransactionTimeoutInSeconds = None):
+  def fbWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
     # Wait until bytes are available for reading and then start a transaction.
     # Return False if a transaction is currently active or someone else is
     # already waiting until bytes are available fore reading. The transaction
@@ -268,7 +275,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__fEndWaitingUntilSomeState(bStartTransaction = False);
       raise;
     fShowDebugOutput("Bytes should now be available for reading; starting transaction...");
-    oSelf.__fEndWaitingUntilSomeState(bStartTransaction = True, nzTransactionTimeoutInSeconds = nzTransactionTimeoutInSeconds);
+    oSelf.__fEndWaitingUntilSomeState(bStartTransaction = True, n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds);
     return True;
   
   def fsReadAvailableBytes(oSelf, *txArguments, **dxArguments):
@@ -276,23 +283,23 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsReadAvailableBytes(*txArguments, **dxArguments);
   
-  def fsReadBytesUntilDisconnected(oSelf, uzMaxNumberOfBytes = None):
+  def fsReadBytesUntilDisconnected(oSelf, u0MaxNumberOfBytes = None):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsReadBytesUntilDisconnected( \
-        uzMaxNumberOfBytes = uzMaxNumberOfBytes, nzTimeoutInSeconds = oSelf.nzTransactionTimeoutInSeconds);
+        u0MaxNumberOfBytes = u0MaxNumberOfBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
   def fsReadBytes(oSelf, uNumberOfBytes):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsReadBytes( \
-        uNumberOfBytes = uNumberOfBytes, nzTimeoutInSeconds = oSelf.nzTransactionTimeoutInSeconds);
+        uNumberOfBytes = uNumberOfBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
-  def fszReadUntilMarker(oSelf, sMarker, uzMaxNumberOfBytes = None):
+  def fs0ReadUntilMarker(oSelf, sMarker, u0MaxNumberOfBytes = None):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
-    return super(cTransactionalBufferedTCPIPConnection, oSelf).fszReadUntilMarker( \
-        sMarker = sMarker, uzMaxNumberOfBytes = uzMaxNumberOfBytes, nzTimeoutInSeconds = oSelf.nzTransactionTimeoutInSeconds);
+    return super(cTransactionalBufferedTCPIPConnection, oSelf).fs0ReadUntilMarker( \
+        sMarker = sMarker, u0MaxNumberOfBytes = u0MaxNumberOfBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
   def fShutdownForReading(oSelf, *txArguments, **dxArguments):
     assert oSelf.bInTransaction, \
@@ -303,7 +310,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be written to this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fuWriteBytes( \
-        sBytes = sBytes, nzTimeoutInSeconds = oSelf.nzTransactionTimeoutInSeconds);
+        sBytes = sBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
   def fShutdownForWriting(oSelf, *txArguments, **dxArguments):
     assert oSelf.bInTransaction, \
