@@ -1,3 +1,6 @@
 [submodule "modules/mMultiThreading"]
 	path = modules/mMultiThreading
 	url = https://github.com/SkyLined/mMultiThreading/
+[submodule "modules/mNotProvided"]
+	path = modules/mNotProvided
+	url = https://github.com/SkyLined/mNotProvided/
