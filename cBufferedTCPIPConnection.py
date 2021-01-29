@@ -10,9 +10,10 @@ except: # Do nothing if not available.
   fEnableAllDebugOutput = lambda: None;
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
+from mNotProvided import *;
+
 from .cTCPIPConnection import cTCPIPConnection;
 from .mExceptions import *;
-from .mNotProvided import *;
 
 # We cannot use select.select to wait for data to be available for reading
 # for secure connections, 

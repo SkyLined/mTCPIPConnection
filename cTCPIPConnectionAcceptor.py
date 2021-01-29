@@ -10,11 +10,12 @@ except: # Do nothing if not available.
   fEnableAllDebugOutput = lambda: None;
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
+from mNotProvided import *;
+
 from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .mExceptions import *;
-from .mNotProvided import *;
 
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 try: # SSL support is optional.

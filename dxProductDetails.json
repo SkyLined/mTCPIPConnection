@@ -1,6 +1,7 @@
 {
   "asDependentOnProductNames": [
-    "mMultiThreading"
+    "mMultiThreading",
+    "mNotProvided"
   ], 
   "asOptionalProductNames": [
     "cFileSystemItem",

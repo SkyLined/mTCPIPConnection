@@ -11,10 +11,10 @@ except: # Do nothing if not available.
   cCallStack = fTerminateWithException = fTerminateWithConsoleOutput = None;
 
 from mMultiThreading import cLock;
+from mNotProvided import *;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
 from .mExceptions import *;
-from .mNotProvided import *;
 
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
