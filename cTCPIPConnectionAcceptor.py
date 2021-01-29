@@ -28,7 +28,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oSelf.__sHostname = fxGetFirstProvidedValue(szHostname, socket.gethostname());
     oSelf.__uPort = fxGetFirstProvidedValue(uzPort, 443 if o0SSLContext else 80);
     oSelf.__o0SSLContext = o0SSLContext;
-    assert o0SSLContext is None or czSSLException is not None, \
+    assert o0SSLContext is None or c0SSLException is not None, \
         "Cannot load SSL support";
     oSelf.__n0zSecureTimeoutInSeconds = n0zSecureTimeoutInSeconds;
     
