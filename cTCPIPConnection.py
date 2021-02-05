@@ -409,6 +409,14 @@ class cTCPIPConnection(cWithCallbacks):
           raise;
         break;
       fShowDebugOutput("%d bytes read." % len(sBytesRead));
+      uShowDataBytesPerLine = 32;
+      for uOffset in xrange(0, len(sBytesRead), uShowDataBytesPerLine):
+        sData = sBytesRead[uOffset:uOffset + uShowDataBytesPerLine];
+        fShowDebugOutput(
+          " ".join(["%02X" % ord(sByte) for sByte in sData]).ljust(3 * uShowDataBytesPerLine) +
+          "| " +
+          "".join([sChar if ord(sChar) in xrange(0x20, 0x7F) else "." for sChar in sData])
+        );
       if len(sBytesRead) == 0:
         # select.select reported a signal on the socket. If it did not signal
         # there was data available it means the connection was shutdown or
