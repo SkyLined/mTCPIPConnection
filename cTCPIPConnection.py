@@ -78,7 +78,7 @@ class cTCPIPConnection(cWithCallbacks):
         raise cTCPIPConnectionRefusedException("Connection refused by server", dxDetails);
       else:
         raise;
-    oSelf = cClass(oPythonSocket, bCreatedLocally = True);
+    oSelf = cClass(oPythonSocket, szRemoteHostname = sHostname, bCreatedLocally = True);
     if o0SSLContext:
       oSelf.fSecure(
         oSSLContext = o0SSLContext,
@@ -113,7 +113,7 @@ class cTCPIPConnection(cWithCallbacks):
         return []; # Waiting timed out.
   
   @ShowDebugOutput
-  def __init__(oSelf, oPythonSocket, o0SecurePythonSocket = None, o0SSLContext = None, bCreatedLocally = False):
+  def __init__(oSelf, oPythonSocket, o0SecurePythonSocket = None, o0SSLContext = None, szRemoteHostname = zNotProvided, bCreatedLocally = False):
     # The initial python socket is not secure. We can "wrap" the socket with SSL
     # to secure it repeatedly to "tunnel" multiple SSL connections. Each time
     # a new SSL connection is tunneled through the existing connection, a new
@@ -150,10 +150,12 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.__bStopping = False;
     oSelf.__bShouldAllowReading = True;
     oSelf.__bShouldAllowWriting = True;
-    oSelf.txLocalAddress = oSelf.__oPythonSocket.getsockname();
-    oSelf.sLocalAddress = "%s:%d" % oSelf.txLocalAddress;
-    oSelf.txRemoteAddress = oSelf.__oPythonSocket.getpeername();
-    oSelf.sRemoteAddress = "%s:%d" % oSelf.txRemoteAddress;
+    oSelf.txLocalAddress = (oSelf.sLocalHostname, oSelf.uLocalPort) = oSelf.__oPythonSocket.getsockname();
+    oSelf.sLocalAddress = "localhost:%d" % oSelf.uLocalPort;
+    oSelf.txRemoteAddress = (oSelf.sRemoteHostname, oSelf.uRemotePort) = oSelf.__oPythonSocket.getpeername();
+    if fbIsProvided(szRemoteHostname):
+      oSelf.sRemoteHostname = szRemoteHostname;
+    oSelf.sRemoteAddress = "%s:%d" % (oSelf.sRemoteHostname, oSelf.uRemotePort);
     oSelf.fAddEvents(
       "bytes read",
       "bytes written",
@@ -588,7 +590,7 @@ class cTCPIPConnection(cWithCallbacks):
     bShouldAllowWriting = bConnected and oSelf.__bShouldAllowWriting;
     bStopping = bConnected and oSelf.__bStopping;
     return [s for s in [
-      "%s %s %s" % (oSelf.sLocalAddress or "??", oSelf.__bCreatedLocally and "=>" or "<=", oSelf.sRemoteAddress or "??"),
+      "%s %s %s" % (oSelf.sLocalAddress, oSelf.__bCreatedLocally and "=>" or "<=", oSelf.sRemoteAddress),
       (
         "disconnected" if not bConnected else 
         "connected" if bShouldAllowWriting and bShouldAllowReading else
