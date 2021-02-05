@@ -29,7 +29,7 @@ gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so th
 
 class cTCPIPConnection(cWithCallbacks):
   n0DefaultConnectTimeoutInSeconds = 5; # How long to try to connect before giving up?
-  uDefaultReadChunkSize = 0x1000; # How many bytes to try to read if we do not know how many are comming.
+  uDefaultReadChunkSize = 0x100 * 0x400; # How many bytes to try to read if we do not know how many are comming.
   
   @classmethod
   @ShowDebugOutput
