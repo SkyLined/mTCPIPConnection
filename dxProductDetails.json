@@ -1,4 +1,6 @@
 {
+  "asProductTypes": ["Python module"],
+  "sPythonModuleName": "mTCPIPConnections",
   "asDependentOnProductNames": [
     "mMultiThreading",
     "mNotProvided"
