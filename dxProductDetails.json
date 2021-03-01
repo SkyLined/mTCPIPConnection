@@ -1,18 +1,22 @@
 {
-  "asProductTypes": ["Python module"],
-  "sPythonModuleName": "mTCPIPConnections",
   "asDependentOnProductNames": [
-    "mMultiThreading",
+    "mMultiThreading", 
     "mNotProvided"
   ], 
+  "asJavaScriptModuleNames": [], 
   "asOptionalProductNames": [
-    "cFileSystemItem",
+    "cFileSystemItem", 
     "mDebugOutput", 
     "mSSL", 
     "mWindowsSDK", 
     "oConsole"
   ], 
-  "oProductVersion": "2020-08-12 11:47", 
+  "asPHPModuleNames": [], 
+  "asProductTypes": [
+    "Python module"
+  ], 
+  "asPythonApplicationNames": [], 
+  "oProductVersion": "2021-03-01 09:14", 
   "oRepository": {
     "sBranch": "master", 
     "sRepositoryName": "mTCPIPConnections", 
@@ -23,5 +27,6 @@
   "sLicenseServerURL": null, 
   "sProductAuthor": "SkyLined", 
   "sProductName": "mTCPIPConnections", 
-  "sProductURL": "https://github.com/SkyLined/mTCPIPConnections"
+  "sProductURL": "https://github.com/SkyLined/mTCPIPConnections", 
+  "sPythonModuleName": "mTCPIPConnections"
 }
