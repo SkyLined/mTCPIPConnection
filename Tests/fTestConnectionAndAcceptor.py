@@ -1,19 +1,19 @@
-from oConsole import oConsole;
+from mConsoleLoader import oConsole;
 
-gsData = "Hello, world!";
-gsHostname = "127.0.0.1";
-guPort = 28876;
+gsbData = b"Hello, world!";
+gsbHostname = b"127.0.0.1";
+guPortNumber = 28876;
 
 def fWriteData(oConnection):
-  oConsole.fOutput("%s: writing %d bytes data: %s." % (oConnection, len(gsData), repr(gsData)));
-  oConnection.fWriteBytes(gsData);
+  oConsole.fOutput("%s: writing %d bytes data: %s." % (oConnection, len(gsbData), repr(gsbData)));
+  oConnection.fWriteBytes(gsbData);
 
 def fWaitForAndReadData(oConnection):
   oConsole.fOutput("%s: Waiting until bytes are available for reading..." % oConnection);
   oConnection.fWaitUntilBytesAreAvailableForReading();
   oConsole.fOutput("%s: Reading data..." % oConnection);
-  sReceivedData = oConnection.fsReadAvailableBytes();
-  oConsole.fOutput("%s:   Read %d bytes data: %s." % (oConnection, len(sReceivedData), repr(sReceivedData)));
+  sbReceivedData = oConnection.fsbReadAvailableBytes();
+  oConsole.fOutput("%s:   Read %d bytes data: %s." % (oConnection, len(sbReceivedData), repr(sbReceivedData)));
 
 def fDisconnectAndWait(oConnection):
   fStartTransactionIfPossible(oConnection);
@@ -35,7 +35,7 @@ def fEndTransactionIfPossible(oConnection):
     oConsole.fOutput("%s: Ending transaction..." % oConnection);
     oConnection.fEndTransaction();
 
-def fTestConnectionAndAcceptor(cConnection, cConnectionAcceptor):
+def fTestConnectionAndAcceptor(cConnection, cConnectionAcceptor, o0ClientSSLContext, o0ServerSSLContext):
   def __fHandleServerSideConnection(oAcceptor, oConnection):
     oConsole.fOutput("Server side: New connection %s." % oConnection);
     
@@ -53,11 +53,11 @@ def fTestConnectionAndAcceptor(cConnection, cConnectionAcceptor):
   
   # Function code starts here
   oConsole.fOutput("Creating Acceptor...");
-  oAcceptor = cConnectionAcceptor(__fHandleServerSideConnection, gsHostname, guPort);
-  oConsole.fOutput("  Acceptor(%s): Listening on %s:%d." % (oAcceptor, gsHostname, guPort));
+  oAcceptor = cConnectionAcceptor(__fHandleServerSideConnection, gsbHostname, guPortNumber, o0SSLContext = o0ServerSSLContext);
+  oConsole.fOutput("  Acceptor(%s): Listening on %s:%d." % (oAcceptor, gsbHostname, guPortNumber));
   
   oConsole.fOutput("Creating Connection...");
-  oConnection = cConnection.foConnectTo(gsHostname, guPort);
+  oConnection = cConnection.foConnectTo(gsbHostname, guPortNumber, o0SSLContext = o0ClientSSLContext);
   oConsole.fOutput("Client side: New connection %s." % oConnection);
   
   fStartTransactionIfPossible(oConnection);

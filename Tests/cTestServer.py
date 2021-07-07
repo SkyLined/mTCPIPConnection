@@ -1,17 +1,26 @@
 import os, select, socket;
+
 from mMultiThreading import cThread, cLock;
+try:
+  import mSSL as m0SSL;
+except ModuleNotFoundError as oException:
+  if oException.args[0] != "No module named 'mSSL'":
+    raise;
+  m0SSL = None;
 
 DIM =            0x0F08; # Dark gray
+WARN =           0x0F04; # Red
 class cTestServer(object):
-  def __init__(oSelf, oConsole, sHostname, uPort, sName, bListen = True, bAccept = True, u0MinRequestBytes = None, u0MaxRequestBytes = None, s0Response = None, bShutdownForReading = False, bShutdownForWriting = False, bDisconnect = False):
+  def __init__(oSelf, oConsole, sbHostname, uPortNumber, o0SSLContext, sName, bListen = True, bAccept = True, u0MinRequestBytes = None, u0MaxRequestBytes = None, sb0Response = None, bShutdownForReading = False, bShutdownForWriting = False, bDisconnect = False):
     oSelf.oConsole = oConsole; # not imported but passed as an argument because it may not be available, in which case a stub is used.
-    oSelf.sHostname = sHostname;
-    oSelf.uPort = uPort;
+    oSelf.sbHostname = sbHostname;
+    oSelf.uPortNumber = uPortNumber;
+    oSelf.o0SSLContext = o0SSLContext;
     oSelf.sName = sName;
     oSelf.oServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
 #    oSelf.oServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); # Do not go to TIME_WAIT after close.
-    oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: binding to %s:%d..." % (sHostname, uPort));
-    oSelf.oServerSocket.bind((sHostname, uPort));
+    oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: binding to %s:%d..." % (sbHostname, uPortNumber));
+    oSelf.oServerSocket.bind((sbHostname, uPortNumber));
     oSelf.bListening = bListen;
     oSelf.bAccepting = bListen and bAccept;
     oSelf.oTerminatedLock = cLock("Terminated lock", bLocked = True);
@@ -29,8 +38,8 @@ class cTestServer(object):
         assert bAccept, "Cannot have `bAccept is False` and `u0MinRequestBytes is not None`!";
         assert u0MaxRequestBytes is not None, "Cannot have `u0MinRequestBytes is not None` if `u0MaxRequestBytes is None`!";
         oSelf.uMaxRequestBytes = u0MaxRequestBytes;
-      assert bAccept or s0Response is None, "Cannot have `bAccept is False` and `s0Response is not None`!";
-      oSelf.s0Response = s0Response;
+      assert bAccept or sb0Response is None, "Cannot have `bAccept is False` and `sb0Response is not None`!";
+      oSelf.sb0Response = sb0Response;
       assert bAccept or not bShutdownForReading, "Cannot have `bAccept is False` and `bShutdownForReading is True`!";
       oSelf.bShutdownForReading = bShutdownForReading;
       assert bAccept or not bShutdownForWriting, "Cannot have `bAccept is False` and `bShutdownForWriting is True`!";
@@ -42,7 +51,7 @@ class cTestServer(object):
         # accept it. Further connections cannot be made until it is accepted but will be queued
         # This is because we've told the socket not to queue additional connections (see above).
         oSelf.oHelperClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-        oSelf.oHelperClientSocket.connect((sHostname, uPort));
+        oSelf.oHelperClientSocket.connect((sbHostname, uPortNumber));
         oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: NOT accepting connections...");
       else:
         oSelf.oServerThreadStartedLock = cLock("Server thread started lock", bLocked = True);
@@ -71,7 +80,7 @@ class cTestServer(object):
       # return.
       try:
         oClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
-        oClientSocket.connect((oSelf.sHostname, oSelf.uPort));
+        oClientSocket.connect((oSelf.sbHostname, oSelf.uPortNumber));
         oClientSocket.close();
       except:
         pass;
@@ -83,26 +92,50 @@ class cTestServer(object):
     oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: accepting connections...");
     oSelf.oServerThreadStartedLock.fRelease();
     while not oSelf.bStopping:
-      (oClientSocket, (sClientIP, uClientPort)) = oSelf.oServerSocket.accept();
+      try:
+        (oClientSocket, (sClientIP, uClientPortNumber)) = oSelf.oServerSocket.accept();
+      except OSError as oException:
+        # We could be waiting to accept a connection when we are asked to stop. This closes the socket, which
+        # throws a specific exception. We can detect that and ignore the exception:
+        if oException.winerror == 10038 and oSelf.bStopping:
+          break;
+        raise;
       if oSelf.bStopping:
         oClientSocket.close();
         break;
       oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: accepted connection.");
       bReadable = True;
       bWritable = True;
-      if oSelf.u0MinRequestBytes is not None:
+      if oSelf.o0SSLContext:
+        try:
+          oClientSocket = oSelf.o0SSLContext.foWrapSocket(
+            oPythonSocket = oClientSocket,
+            n0zTimeoutInSeconds = 5,
+          );
+        except Exception as oException:
+          if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
+            oSelf.oConsole.fOutput(WARN, "* ", oSelf.sName, " test server: could not secure connection: ", oException.__class__.__name__, "(", repr(oException.sMessage), ")");
+            for (sName, xValue) in oException.dxDetails.items():
+              oSelf.oConsole.fOutput(WARN, "  ", oSelf.sName, " test server:    ", repr(sName), " = ", repr(xValue));
+            bReadable = False;
+            bWritable = False;
+          else:
+            raise;
+      if bReadable and oSelf.u0MinRequestBytes is not None:
         oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: receiving %d-%d bytes request..." % (oSelf.u0MinRequestBytes, oSelf.uMaxRequestBytes));
         uBytesRead = 0;
         while not oSelf.bStopping and uBytesRead < oSelf.u0MinRequestBytes:
           try:
             uBytesRead += len(oClientSocket.recv(oSelf.uMaxRequestBytes - uBytesRead));
-          except:
+          except Exception as oException:
+            raise;
             bReadable = False;
-      if not oSelf.bStopping and oSelf.s0Response is not None:
-        oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: sending %s bytes response..." % (len(oSelf.s0Response)));
+      if bWritable and not oSelf.bStopping and oSelf.sb0Response is not None:
+        oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: sending %s bytes response..." % (len(oSelf.sb0Response)));
         try:
-          oClientSocket.send(oSelf.s0Response);
-        except:
+          oClientSocket.send(oSelf.sb0Response);
+        except Exception as oException:
+          raise;
           bWritable = False;
       bShutdownForReading = bReadable and oSelf.bShutdownForReading;
       bShutdownForWriting = bWritable and oSelf.bShutdownForWriting;
@@ -124,7 +157,8 @@ class cTestServer(object):
         oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: closing connection...");
         try:
           oClientSocket.close();
-        except:
+        except Exception as oException:
+          raise;
           pass;
         bReadable = False;
         bWritable = False;
@@ -134,7 +168,11 @@ class cTestServer(object):
         if bReadable:
           try:
             sData = oClientSocket.recv(0x1000);
+          except socket.timeout as oException:
+            oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: timeout while reading; retrying...");
+            continue;
           except Exception as oException:
+            raise;
             bReadable = False;
             oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: connection closed for reading (%s)." % oException);
           else:
@@ -146,7 +184,8 @@ class cTestServer(object):
             oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: connection closed for writing.");
       try:
         oClientSocket.close();
-      except:
+      except Exception as oException:
+        raise;
         pass;
       oClientSocket = None;
       oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: disconnected, ", \

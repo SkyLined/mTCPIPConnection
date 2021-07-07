@@ -1,11 +1,11 @@
-from mTCPIPConnections import *;
+from mTCPIPConnection import *;
 
 from cTestServer import *;
 
-gsRequestData = "Request";
-gsResponseData = "Response";
-gsTestServerHostname = "127.0.0.1";
-guTestServerPort = 28876;
+gsbRequestData = b"Request";
+gsbResponseData = b"Response";
+gsbTestServerHostname = b"127.0.0.1";
+guTestServerPortNumber = 28876;
 gnConnectTimeoutInSeconds = 5;
 gnTransactionTimeoutInSeconds = 5;
 gnWaitForDataTimeoutInSeconds = 5;
@@ -20,11 +20,11 @@ WARNING =           0x0F0E; # Yellow
 
 dddxTest_by_sName = {
   "unknown hostname": {
-    "sHostname": "does.not.exist.example.com",
+    "sbHostname": b"does.not.exist.example.com",
     "cExpectedExceptionClass": mExceptions.cDNSUnknownHostnameException,
   },
   "invalid address": {
-    "sHostname": "0.0.0.0",
+    "sbHostname": b"0.0.0.0",
     "cExpectedExceptionClass": mExceptions.cTCPIPInvalidAddressException,
   },
   "connection refused": {
@@ -44,7 +44,7 @@ dddxTest_by_sName = {
     "cTestServer arguments": {
       "bDisconnect": True, # Will accepting a connection on a server socket and disconnect immediately.
     },
-    "sExpectedResponseData": gsResponseData, # Waaiting for this response should trigger an exception
+    "sbExpectedResponseData": gsbResponseData, # Waiting for this response should trigger an exception
     "cExpectedExceptionClass": mExceptions.cTCPIPConnectionDisconnectedException,
     "ac0AcceptableExceptionClasses": [mExceptions.cTCPIPConnectionShutdownException], # It's hard to create a reliable server that does not shutdown the connection
   },
@@ -52,46 +52,53 @@ dddxTest_by_sName = {
     "cTestServer arguments": {
       "bShutdownForWriting": True, # Will accepting a connection on a server socket and shutdown for writing immediately.
     },
-    "sRequestData": gsRequestData,
-    "sExpectedResponseData": gsResponseData,
+    "sbRequestData": gsbRequestData,
+    "sbExpectedResponseData": gsbResponseData, # Waiting for this response should trigger an exception
     "cExpectedExceptionClass": mExceptions.cTCPIPConnectionShutdownException,
+    "ac0AcceptableExceptionClasses": [mExceptions.cTCPIPConnectionDisconnectedException], # Reported when connection is shutdown during SSL handshake
   },
   "response timeout": {
     "acAppliesToConnectionClasses": [cTransactionalBufferedTCPIPConnection], # Class must support timeouts.
     "cTestServer arguments": {}, # Accept connections but do nothing
-    "sRequestData": gsRequestData,
-    "sExpectedResponseData": gsResponseData,
+    "sbRequestData": gsbRequestData,
+    "sbExpectedResponseData": gsbResponseData,
     "cExpectedExceptionClass": mExceptions.cTCPIPDataTimeoutException,
   },
 };
 
-def fRunTestsOnTCPIPConnectionClasses(oConsole):
+def fRunTestsOnTCPIPConnectionClasses(oConsole, o0ClientSSLContext, o0ServerSSLContext):
   for cConnectionClass in (cTCPIPConnection, cBufferedTCPIPConnection, cTransactionalBufferedTCPIPConnection):
-    fRunTestsOnTCPIPConnectionClass(oConsole, cConnectionClass);
+    fRunTestsOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLContext, o0ServerSSLContext);
 
-def fRunTestsOnTCPIPConnectionClass(oConsole, cConnectionClass):
+def fRunTestsOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLContext, o0ServerSSLContext):
   for (sName, ddxTest) in dddxTest_by_sName.items():
     a0cAppliesToConnectionClasses = ddxTest.get("acAppliesToConnectionClasses");
     if not a0cAppliesToConnectionClasses or cConnectionClass in a0cAppliesToConnectionClasses:
-      fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, sName, ddxTest);
+      fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLContext, o0ServerSSLContext, sName, ddxTest);
 
-def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, sName, ddxTest):
-  oConsole.fOutput("*** ", INFO, sName, NORMAL, " test for ", INFO, cConnectionClass.__name__, NORMAL, " ", sPadding = "*");
-  s0TestHostname = ddxTest.get("sHostname");
-  if s0TestHostname:
-    sTestHostname = s0TestHostname;
+def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLContext, o0ServerSSLContext, sName, ddxTest):
+  oConsole.fOutput(
+    "*** ", INFO, sName, NORMAL,
+    " test for ", INFO, cConnectionClass.__name__, " secure connection" if o0ClientSSLContext else "",
+    NORMAL, " ",
+    sPadding = "*"
+  );
+  sb0TestHostname = ddxTest.get("sbHostname");
+  if sb0TestHostname:
+    sbTestHostname = sb0TestHostname;
     o0TestServer = None;
-    uTestPort = ddxTest.get("uPort", 1); # If not specified, connect to port 1.
+    uTestPortNumber = ddxTest.get("uPortNumber", 1); # If not specified, connect to port 1.
   else:
     o0TestServer = cTestServer(
       oConsole,
-      gsTestServerHostname,
-      guTestServerPort,
+      gsbTestServerHostname,
+      guTestServerPortNumber,
+      o0ServerSSLContext,
       sName,
       **ddxTest.get("cTestServer arguments", {})
     );
-    sTestHostname = gsTestServerHostname;
-    uTestPort = guTestServerPort;
+    sbTestHostname = gsbTestServerHostname;
+    uTestPortNumber = guTestServerPortNumber;
   
   c0ExpectedExceptionClass = ddxTest.get("cExpectedExceptionClass");
   ac0AcceptableExceptionClasses = ddxTest.get("ac0AcceptableExceptionClasses", []);
@@ -99,12 +106,12 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, sName, ddxTest):
   bTransactionStarted = False;
   try:
     # Connect
-    oConsole.fOutput("* ", sName, " test client: connecting for %f seconds to server at %s:%d..." % (gnConnectTimeoutInSeconds, sTestHostname, uTestPort));
+    oConsole.fOutput("* ", sName, " test client: connecting for %f seconds to server at %s:%d..." % (gnConnectTimeoutInSeconds, sbTestHostname, uTestPortNumber));
     oConnection = cConnectionClass.foConnectTo(
-      sTestHostname,
-      uTestPort,
+      sbTestHostname,
+      uTestPortNumber,
       n0zConnectTimeoutInSeconds = gnConnectTimeoutInSeconds,
-      o0SSLContext = None,
+      o0SSLContext = o0ClientSSLContext,
       n0zSecureTimeoutInSeconds = None,
     );
     bBuffered = hasattr(oConnection, "fsReadBytes");
@@ -115,31 +122,31 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, sName, ddxTest):
       assert oConnection.fbStartTransaction(n0TimeoutInSeconds = gnTransactionTimeoutInSeconds), \
           "Could not start a transaction on %s!?" % oConnection;
     # Send request if applicable
-    s0RequestData = ddxTest.get("sRequestData");
-    if s0RequestData is not None:
-      oConsole.fOutput("* ", sName, " test client: writing ", str(len(s0RequestData)), " bytes data...", );
-      oConnection.fWriteBytes(s0RequestData);
+    sb0RequestData = ddxTest.get("sbRequestData");
+    if sb0RequestData is not None:
+      oConsole.fOutput("* ", sName, " test client: writing ", str(len(sb0RequestData)), " bytes data...", );
+      oConnection.fWriteBytes(sb0RequestData);
     # Read response if applicable
-    s0ExpectedResponseData = ddxTest.get("sExpectedResponseData");
-    if s0ExpectedResponseData is not None:
+    sb0ExpectedResponseData = ddxTest.get("sbExpectedResponseData");
+    if sb0ExpectedResponseData is not None:
       if bTransactional:
-        sReceivedData = oConnection.fsReadBytes(
-          uNumberOfBytes = len(s0ExpectedResponseData),
+        sbReceivedData = oConnection.fsbReadBytes(
+          uNumberOfBytes = len(sb0ExpectedResponseData),
         );
       elif bBuffered:
-        sReceivedData = oConnection.fsReadBytes(
-          uNumberOfBytes = len(s0ExpectedResponseData),
+        sbReceivedData = oConnection.fsbReadBytes(
+          uNumberOfBytes = len(sb0ExpectedResponseData),
           n0TimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
         );
       else:
-        sReceivedData = "";
-        while len(sReceivedData) < len(s0ExpectedResponseData):
+        sbReceivedData = b"";
+        while len(sbReceivedData) < len(sb0ExpectedResponseData):
           oConsole.fOutput("* ", sName, " test client: waiting %f seconds until bytes are available for reading..." % (gnWaitForDataTimeoutInSeconds,));
           oConnection.fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds = gnWaitForDataTimeoutInSeconds);
           oConsole.fOutput("* ", sName, " test client: reading bytes...");
-          sReceivedData += oConnection.fsReadAvailableBytes();
-      assert sReceivedData == s0ExpectedResponseData, \
-          "Expected %s, got %s" % (repr(s0ExpectedResponseData), repr(sReceivedData));
+          sbReceivedData += oConnection.fsbReadAvailableBytes();
+      assert sbReceivedData == sb0ExpectedResponseData, \
+          "Expected %s, got %s" % (repr(sb0ExpectedResponseData), repr(sbReceivedData));
   except Exception as oException:
     if oException.__class__ is c0ExpectedExceptionClass:
       oConsole.fOutput(OK, "+ Got expected exception: ", oException.__class__.__name__, ": ", str(oException));

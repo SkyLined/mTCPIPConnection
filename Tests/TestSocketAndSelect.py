@@ -7,14 +7,14 @@ from fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
 
 nConnectTimeoutInSeconds = 1.0;
-sHostname = "localhost";
-uPort = 31337;
+sbHostname = b"localhost";
+uPortNumber = 31337;
 uReceiveBytes = 10;
-sSendBytes = "X" * 10;
+sbSendBytes = b"X" * 10;
 
 oListeningSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
 oListeningSocket.settimeout(0);
-oListeningSocket.bind((sHostname, uPort));
+oListeningSocket.bind((sbHostname, uPortNumber));
 oListeningSocket.listen(1);
 
 oServerSocket = None;
@@ -44,7 +44,7 @@ def foCreateSockets(bSecure, bClient):
   # Create client socket
   oClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
   oClientSocket.settimeout(nConnectTimeoutInSeconds);
-  oClientSocket.connect((sHostname, uPort));
+  oClientSocket.connect((sbHostname, uPortNumber));
   # Create server socket
   aoR, aoW, aoX = select.select([oListeningSocket], [oListeningSocket], [oListeningSocket]);
   assert len(aoW) == 0, \
@@ -53,7 +53,7 @@ def foCreateSockets(bSecure, bClient):
       "Listening socket has exception!?";
   assert len(aoR) == 1, \
       "Listening socket is not ready for reading!?";
-  (oServerSocket, (sClientIP, uClientPort)) = oListeningSocket.accept();
+  (oServerSocket, (sClientIP, uClientPortNumber)) = oListeningSocket.accept();
   if bSecure:
     def fSecureServerSide():
       global oSecureServerSocket;
@@ -81,13 +81,13 @@ def fTestSockets(bSecure, sState, bTestClient = True, bTestServer = True, bCanWa
     if bTestClient: sClientLog += " [" + fsTestSocketStatus(oSecureClientSocket, oClientSocket, bCanWaitForReading) + "]";
     if bTestServer: sServerLog += " [" + fsTestSocketStatus(oSecureServerSocket, oServerSocket, bCanWaitForReading) + "]";
     try:
-      assert (oSecureClientSocket or oClientSocket).send("x") == 1, "";
+      assert (oSecureClientSocket or oClientSocket).send(sbSendBytes) == len(sbSendBytes), "";
     except Exception as oException:
       if bTestClient: sClientLog += " wXXX";
     else:
       if bTestClient: sClientLog += " W";
     try:
-      assert (oSecureServerSocket or oServerSocket).send("x") == 1, "";
+      assert (oSecureServerSocket or oServerSocket).send(sbSendBytes) == len(sbSendBytes), "";
     except Exception as oException:
       if bTestServer: sServerLog += " wXXX";
     else:
@@ -105,10 +105,10 @@ def fTestSockets(bSecure, sState, bTestClient = True, bTestServer = True, bCanWa
     else:
       if bTestServer: sServerLog += " Read(10) => %d bytes" % (len(sData),);
   finally:
-    print (",--- %s %s " % ("secure" if bSecure else "non-secure", sState)).ljust(80, "-");
-    if bTestClient: print "| " + sClientLog;
-    if bTestServer: print "| " + sServerLog;
-    print "'".ljust(80, "-");
+    print((",--- %s %s " % ("secure" if bSecure else "non-secure", sState)).ljust(80, "-"));
+    if bTestClient: print("| " + sClientLog);
+    if bTestServer: print("| " + sServerLog);
+    print("'".ljust(80, "-"));
 
 def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
   sLog = "";
@@ -146,8 +146,10 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
     try:
       oSocket.settimeout(0);
       sData = oSocket.recv(1);
-    except socket.error as oException:
-      if fbExceptionMeansSocketShutdown(oException):
+    except (socket.error, ssl.SSLWantReadError) as oException:
+      if fbExceptionMeansSocketTimeout(oException):
+        sLog += "Read(1):Timeout  ";
+      elif fbExceptionMeansSocketShutdown(oException):
         sLog += "Read(1):Shutdown ";
         bIsOpenForReading = False;
       elif fbExceptionMeansSocketDisconnected(oException):
@@ -169,7 +171,7 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
   sLog += "Select(WX):[W] " if bIsOpenForWriting else "Select(WX):[]  ";
   if bIsOpenForWriting:
     try:
-      oNonSecureSocket.send("");
+      oNonSecureSocket.send(b"");
     except socket.error as oException:
       if fbExceptionMeansSocketShutdown(oException):
         sLog += "Write(''):Shutdown ";
@@ -190,31 +192,39 @@ def fsTestSocketStatus(oSecureSocket, oNonSecureSocket, bCanWaitForReading):
     )
   );
 
-for bSecure in (False, True):
-  foCreateSockets(bSecure, False);
-  fTestSockets(bSecure, "RW: connected");
-
-for bClient in (True, False):
+try:
   for bSecure in (False, True):
-    foCreateSockets(bSecure, bClient).shutdown(socket.SHUT_RD);
-    fTestSockets(bSecure, "Rx: read shutdown by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient);
-    
-    foCreateSockets(bSecure, bClient).shutdown(socket.SHUT_WR);
-    fTestSockets(bSecure, "xW: write shutdown by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
-    
-    foCreateSockets(bSecure, bClient).shutdown(socket.SHUT_RDWR);
-    fTestSockets(bSecure, "xx: shutdown by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
-    
-    foCreateSockets(bSecure, bClient).close();
-    if bSecure:
-      (oClientSocket if bClient else oServerSocket).close();
-    fTestSockets(bSecure, "xx: closed by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
+    foCreateSockets(bSecure, False);
+    fTestSockets(bSecure, "RW: connected");
 
-    oSocket = foCreateSockets(bSecure, bClient);
-    oSocket.shutdown(socket.SHUT_RDWR);
-    oSocket.close();
-    if bSecure:
-      (oClientSocket if bClient else oServerSocket).shutdown(socket.SHUT_RDWR);
-      (oClientSocket if bClient else oServerSocket).close();
-    fTestSockets(bSecure, "xx: shutdown and closed by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
+  for bClient in (True, False):
+    for bSecure in (False, True):
+      foCreateSockets(bSecure, bClient).shutdown(socket.SHUT_RD);
+      fTestSockets(bSecure, "Rx: read shutdown by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient);
+      
+      foCreateSockets(bSecure, bClient).shutdown(socket.SHUT_WR);
+      fTestSockets(bSecure, "xW: write shutdown by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
+      
+      foCreateSockets(bSecure, bClient).shutdown(socket.SHUT_RDWR);
+      fTestSockets(bSecure, "xx: shutdown by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
+      
+      foCreateSockets(bSecure, bClient).close();
+      if bSecure:
+        (oClientSocket if bClient else oServerSocket).close();
+      fTestSockets(bSecure, "xx: closed by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
 
+      oSocket = foCreateSockets(bSecure, bClient);
+      oSocket.shutdown(socket.SHUT_RDWR);
+      oSocket.close();
+      if bSecure:
+        try:
+          (oClientSocket if bClient else oServerSocket).shutdown(socket.SHUT_RDWR);
+        except Exception as oException:
+          if not fbExceptionMeansSocketDisconnected(oException):
+            raise;
+        (oClientSocket if bClient else oServerSocket).close();
+      fTestSockets(bSecure, "xx: shutdown and closed by %s" % ("client" if bClient else "server"), bTestClient = not bClient, bTestServer = bClient, bCanWaitForReading = False);
+
+except Exception as oException:
+  print("*** %s(%s) ***" % (oException.__class__.__name__, ", ".join([repr(s) for s in oException.args])));
+  raise;

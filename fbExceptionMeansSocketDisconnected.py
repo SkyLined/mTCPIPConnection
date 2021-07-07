@@ -1,8 +1,8 @@
-import socket;
+import socket, ssl;
 
 def fbExceptionMeansSocketDisconnected(oException):
   return (
-    (oException.__class__ == socket.error and oException.errno in [
+    (isinstance(oException, OSError) and oException.errno in [
       9, # "Bad file descriptor"
       0x2736, # WSAENOTSOCK     An operation was attempted on something that is not a socket
       0x2742, # WSAENETDOWN     A socket operation encountered a dead network.
@@ -13,4 +13,6 @@ def fbExceptionMeansSocketDisconnected(oException):
       0x2749, # WSAENOTCONN     A request to send or receive data was disallowed because the socket is not connected.
       0x2751, # WSAEHOSTUNREACH A socket operation was attempted to an unreachable host. 
     ])
+    or isinstance(oException, ConnectionResetError)
+    or isinstance(oException, ssl.SSLEOFError)
   );
