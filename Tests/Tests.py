@@ -77,7 +77,7 @@ try:
       "Cannot test both quick and full!";
   
   if m0SSL is not None:
-    sCertificateAuthorityFolderPath = os.path.join(os.path.dirname(__file__), "temp");
+    sCertificateAuthorityFolderPath = os.path.join(os.path.dirname(__file__), "tmp");
     
     oCertificateAuthority = m0SSL.cCertificateAuthority(sCertificateAuthorityFolderPath, "mSSL Test");
     oConsole.fOutput("  oCertificateAuthority = ", str(oCertificateAuthority));

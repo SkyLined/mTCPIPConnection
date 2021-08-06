@@ -50,9 +50,19 @@ class cTestServer(object):
         # If we are NOT accepting connections, make a connection to the server but we do not
         # accept it. Further connections cannot be made until it is accepted but will be queued
         # This is because we've told the socket not to queue additional connections (see above).
+        oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: Connecting to self...");
         oSelf.oHelperClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
         oSelf.oHelperClientSocket.connect((sbHostname, uPortNumber));
-        oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: NOT accepting connections...");
+        oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: Connecting to self again...");
+        oSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0);
+        oSocket.settimeout(0.1);
+        try:
+          oSocket.connect((sbHostname, uPortNumber));
+        except socket.timeout:
+          oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: NOT accepting connections.");
+          pass;
+        else:
+          raise AssertionError("Cannot create a server socket that does no accept connections!");
       else:
         oSelf.oServerThreadStartedLock = cLock("Server thread started lock", bLocked = True);
         oSelf.oServerThread = cThread(oSelf.fServerThread);
@@ -65,13 +75,15 @@ class cTestServer(object):
       oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: stopped.");
       oSelf.oTerminatedLock.fRelease();
     elif not oSelf.bAccepting:
-      oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: closing server socket...");
+      oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: closing non-accepting server socket...");
       oSelf.oServerSocket.close();
+      del oSelf.oServerSocket;
       oSelf.oHelperClientSocket.close();
+      del oSelf.oHelperClientSocket;
       oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: stopped.");
       oSelf.oTerminatedLock.fRelease();
     else:
-      oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: closing server socket...");
+      oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: closing accepting server socket...");
       oSelf.oServerSocket.close();
       # socket.accept will wait indefinitely, even after the socket is closed. This means
       # `fServerThread` will never return unless we force socket.accept to stop waiting.
@@ -182,14 +194,11 @@ class cTestServer(object):
           if not select.select([], [oClientSocket], [])[1]:
             bWritable = False;
             oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: connection closed for writing.");
-      try:
-        oClientSocket.close();
-      except Exception as oException:
-        raise;
-        pass;
+      oClientSocket.close();
       oClientSocket = None;
       oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: disconnected, ", \
           "accepting new connection" if not oSelf.bStopping else "closing server socket", "...");
     oSelf.oServerSocket.close();
+    del oSelf.oServerSocket;
     oSelf.oConsole.fOutput(DIM, "* ", oSelf.sName, " test server: stopped.");
     oSelf.oTerminatedLock.fRelease();
