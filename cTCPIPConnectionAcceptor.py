@@ -284,6 +284,5 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   def __str__(oSelf):
     return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));
 
-print repr(cTCPIPConnectionAcceptor.sbDefaultHostname);
 for cException in acExceptions:
   setattr(cTCPIPConnectionAcceptor, cException.__name__, cException);
