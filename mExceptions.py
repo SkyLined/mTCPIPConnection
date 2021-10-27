@@ -1,7 +1,8 @@
 try: # SSL support is optional
   from mSSL.mExceptions import *;
+  from mSSL.mExceptions import acExceptions as acSSLExceptions;
 except:
-  cSSLException = None; # can be used to detect support
+  acSSLExceptions = [];
 
 class cTCPIPException(Exception):
   def __init__(oSelf, sMessage, dxDetails):
@@ -32,3 +33,16 @@ class cDNSUnknownHostnameException(cTCPIPException):
 class cTCPIPConnectionShutdownException(cTCPIPException):
   pass;
 
+acExceptions = (
+  acSSLExceptions + [
+    cTCPIPException,
+    cTCPIPPortAlreadyInUseAsAcceptorException,
+    cTCPIPConnectionRefusedException,
+    cTCPIPConnectionDisconnectedException,
+    cTCPIPInvalidAddressException,
+    cTCPIPConnectTimeoutException,
+    cTCPIPDataTimeoutException,
+    cDNSUnknownHostnameException,
+    cTCPIPConnectionShutdownException,
+  ]
+);
