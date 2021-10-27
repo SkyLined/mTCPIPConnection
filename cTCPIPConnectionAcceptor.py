@@ -25,14 +25,20 @@ except ModuleNotFoundError as oException:
     raise;
   m0SSL = None; # No SSL support
 
+# If theire are no default port numbers, or they are in use, pick the first
+# one that is free one from this range of numbers:
+o0DefaultAdditionalPortNumberRange = range(28876, 65536);
+sbDefaultHostname = bytes(socket.gethostname(), "ascii", "strict");
+
 class cTCPIPConnectionAcceptor(cWithCallbacks):
+  bSSLIsSupported = m0SSL is not None;
   # There are no default port numbers but subclasses that implement a specific
   # protocol can provide them (e.g. port 80 vs 443 for HTTP/HTTPS)
   u0DefaultNonSSLPortNumber = None;
   u0DefaultSSLPortNumber = None;
-  # If theire are no default port numbers, or they are in use, pick the first
-  # one that is free one from this range of numbers:
-  o0DefaultAdditionalPortNumberRange = range(28876, 65536);
+  sbDefaultHostname = sbDefaultHostname;
+  o0DefaultAdditionalPortNumberRange = o0DefaultAdditionalPortNumberRange;
+  
   @ShowDebugOutput
   def __init__(oSelf,
     fNewConnectionHandler,
@@ -48,7 +54,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
           "Cannot load mSSL; o0SSLContext cannot be %s!" % repr(o0SSLContext);
     fAssertType("n0zSecureTimeoutInSeconds", n0zSecureTimeoutInSeconds, int, float, zNotProvided, None);
     oSelf.__fNewConnectionHandler = fNewConnectionHandler;
-    oSelf.__sbHostname = sbzHostname if fbIsProvided(sbzHostname) else bytes(socket.gethostname(), 'latin1');
+    oSelf.__sbHostname = sbzHostname if fbIsProvided(sbzHostname) else oSelf.sbDefaultHostname;
     oSelf.__o0SSLContext = o0SSLContext;
     oSelf.__n0zSecureTimeoutInSeconds = n0zSecureTimeoutInSeconds;
     
@@ -277,3 +283,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   
   def __str__(oSelf):
     return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));
+
+print repr(cTCPIPConnectionAcceptor.sbDefaultHostname);
+for cException in acExceptions:
+  setattr(cTCPIPConnectionAcceptor, cException.__name__, cException);
