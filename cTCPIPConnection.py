@@ -21,7 +21,7 @@ from .fbExceptionMeansSocketConnectionRefused import fbExceptionMeansSocketConne
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketHasNoDataAvailable import fbExceptionMeansSocketHasNoDataAvailable;
 from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
-from .fbExceptionMeansSocketInvalidAddress import fbExceptionMeansSocketInvalidAddress;
+from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
 from .mExceptions import *;
@@ -32,6 +32,7 @@ from .mExceptions import *;
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
 class cTCPIPConnection(cWithCallbacks):
+  bSSLIsSupported = m0SSL is not None;
   n0DefaultConnectTimeoutInSeconds = 5; # How long to try to connect before giving up?
   uDefaultReadChunkSize = 0x100 * 0x400; # How many bytes to try to read if we do not know how many are comming.
   
@@ -54,13 +55,13 @@ class cTCPIPConnection(cWithCallbacks):
     n0ConnectTimeoutInSeconds = fxGetFirstProvidedValue(n0zConnectTimeoutInSeconds, cClass.n0DefaultConnectTimeoutInSeconds);
     # Resolve hostname
     sLowerHostname = str(sbHostname, "ascii", "strict").lower();
-    dxDetails = {"sbHostname": sbHostname, "uPortNumber": uPortNumber, "n0ConnectTimeoutInSeconds": n0ConnectTimeoutInSeconds};
+    dxDetails = {"sbHostname": sbHostname, "uPortNumber": uPortNumber};
     try:
-      atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
+      atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, proto = socket.IPPROTO_TCP, flags = socket.AI_CANONNAME)
     except Exception as oException:
       if fbExceptionMeansSocketHostnameCannotBeResolved(oException):
         raise cDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
-      elif fbExceptionMeansSocketInvalidAddress(oException):
+      elif fbExceptionMeansSocketAddressIsInvalid(oException):
         raise cTCPIPInvalidAddressException("Invalid hostname", dxDetails);
       else:
         raise;
@@ -103,7 +104,7 @@ class cTCPIPConnection(cWithCallbacks):
         fShowDebugOutput("Exception during `connect()`: %s(%s)" % (oException.__class__.__name__, oException));
         if not bIsLastAddressInfo: continue; # try the next address
         dxDetails["nDuration"] = time.time() - nStartTime;
-        if fbExceptionMeansSocketInvalidAddress(oException):
+        if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException("Invalid hostname", dxDetails);
         elif fbExceptionMeansSocketTimeout(oException):
           # Note that a Python server socket will refuse connections after a few seconds if the queue is full (the size
@@ -507,7 +508,7 @@ class cTCPIPConnection(cWithCallbacks):
         fShowDebugOutput("No bytes read indicates the socket was shutdown and/or disconnected.");
         oSelf.__fHandleShutdownForReading(sWhile);
         break;
-      oSelf.fFireCallbacks("bytes read", {"sbBytes": sbBytesRead});
+      oSelf.fFireCallbacks("bytes read", sbBytesRead);
       sbAvailableBytes += sbBytesRead;
     return sbAvailableBytes;
   
@@ -559,7 +560,7 @@ class cTCPIPConnection(cWithCallbacks):
           raise;
         oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True, bMustThrowException = True);
       fShowDebugOutput("%d bytes written." % uNumberOfBytesWrittenInSendCall);
-      oSelf.fFireCallbacks("bytes written", {"sbBytes": sbBytes[:uNumberOfBytesWrittenInSendCall]});
+      oSelf.fFireCallbacks("bytes written", sbBytes[:uNumberOfBytesWrittenInSendCall]);
       sbBytes = sbBytes[uNumberOfBytesWrittenInSendCall:];
       uTotalNumberOfBytesWritten += uNumberOfBytesWrittenInSendCall;
       dxDetails["uNumberOfBytesWritten"] = uTotalNumberOfBytesWritten;
@@ -712,3 +713,6 @@ class cTCPIPConnection(cWithCallbacks):
   
   def __str__(oSelf):
     return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));
+
+for cException in acExceptions:
+  setattr(cTCPIPConnection, cException.__name__, cException);

@@ -13,7 +13,7 @@ from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansSocketAlreadyInUseAsAcceptor import fbExceptionMeansSocketAlreadyInUseAsAcceptor;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
-from .fbExceptionMeansSocketInvalidAddress import fbExceptionMeansSocketInvalidAddress;
+from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .mExceptions import *;
 
@@ -69,7 +69,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
       except Exception as oException:
         if fbExceptionMeansSocketHostnameCannotBeResolved(oException):
           raise cDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
-        elif fbExceptionMeansSocketInvalidAddress(oException):
+        elif fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException("Invalid hostname", dxDetails);
         else:
           raise;
