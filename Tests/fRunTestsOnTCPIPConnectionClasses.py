@@ -115,12 +115,11 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
       n0zSecureTimeoutInSeconds = None,
     );
     bBuffered = hasattr(oConnection, "fsReadBytes");
-    bTransactional = hasattr(oConnection, "fbStartTransaction");
+    bTransactional = hasattr(oConnection, "fStartTransaction");
     # Start transaction if applicable
     if bTransactional:
       oConsole.fOutput("* ", sName, " test client: starting %f second transaction..." % (gnTransactionTimeoutInSeconds,));
-      assert oConnection.fbStartTransaction(n0TimeoutInSeconds = gnTransactionTimeoutInSeconds), \
-          "Could not start a transaction on %s!?" % oConnection;
+      oConnection.fStartTransaction(n0TimeoutInSeconds = gnTransactionTimeoutInSeconds);
     # Send request if applicable
     sb0RequestData = ddxTest.get("sbRequestData");
     if sb0RequestData is not None:
@@ -175,8 +174,7 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
     # Close connection and end transaction (a transaction may need to be started first)
     if bTransactional and not oConnection.bInTransaction:
       oConsole.fOutput("* ", sName, " test client: starting transaction to close connection...");
-      assert oConnection.fbStartTransaction(), \
-          "Could not start a transaction on %s!?" % oConnection;
+      oConnection.fStartTransaction();
       
     oConsole.fOutput("* ", sName, " test client: disconnecting...");
     oConnection.fDisconnect();

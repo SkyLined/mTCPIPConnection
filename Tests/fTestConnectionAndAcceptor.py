@@ -25,9 +25,9 @@ def fDisconnectAndWait(oConnection):
       "%s did not disconnect in a reasonable time!?";
 
 def fStartTransactionIfPossible(oConnection):
-  if hasattr(oConnection, "fbStartTransaction"):
+  if hasattr(oConnection, "fStartTransaction"):
     oConsole.fOutput("%s: Starting transaction..." % oConnection);
-    assert oConnection.fbStartTransaction(), \
+    assert oConnection.fStartTransaction(), \
         "Could not start a transaction on %s!?" % oConnection;
 
 def fEndTransactionIfPossible(oConnection):

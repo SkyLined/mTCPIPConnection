@@ -32,6 +32,8 @@ class cDNSUnknownHostnameException(cTCPIPException):
   pass;
 class cTCPIPConnectionShutdownException(cTCPIPException):
   pass;
+class cTransactionalConnectionCannotBeUsedConcurrently(cTCPIPException):
+  pass;
 
 acExceptions = (
   acSSLExceptions + [
@@ -44,5 +46,6 @@ acExceptions = (
     cTCPIPDataTimeoutException,
     cDNSUnknownHostnameException,
     cTCPIPConnectionShutdownException,
+    cTransactionalConnectionCannotBeUsedConcurrently,
   ]
 );
