@@ -31,6 +31,10 @@ from .mExceptions import *;
 # bug, where "too long" is defined by the following value:
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
+def fsbAddressFromHostnameAndPort(sbHostname, uPort):
+  # IPv6 Addresses have colons in them; wrap them in [] to prevent confusion with the port number.
+  return (b"[%s]:%d" if b":" in sbHostname else b"%s:%d") % (sbHostname, uPort);
+
 class cTCPIPConnection(cWithCallbacks):
   bSSLIsSupported = m0SSL is not None;
   n0DefaultConnectTimeoutInSeconds = 5; # How long to try to connect before giving up?
@@ -78,7 +82,7 @@ class cTCPIPConnection(cWithCallbacks):
       if sCanonicalName.lower() != sLowerHostname:
         dxDetails["sCanonicalName"] = sCanonicalName;
       fShowDebugOutput("Connecting to %s:%d (%saddress %s)..." % (
-        sLowerHostname,
+        ("[%s]" if ":" in sLowerHostname else "%s") % (sLowerHostname,), # IPv6 Addresses must be wrapped in []
         uPortNumber,
         ("canonical name %s, " % sCanonicalName) if (sCanonicalName != sLowerHostname) else "",
         txAddress[0]
@@ -201,12 +205,12 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.txLocalAddress = oSelf.__oPythonSocket.getsockname();
     oSelf.uLocalPortNumber = oSelf.txLocalAddress[1];
     oSelf.sbLocalHostname = bytes(oSelf.txLocalAddress[0], 'latin1');
-    oSelf.sbLocalAddress = b"%s:%d" % (oSelf.sbLocalHostname, oSelf.uLocalPortNumber);
+    oSelf.sbLocalAddress = fsbAddressFromHostnameAndPort(oSelf.sbLocalHostname, oSelf.uLocalPortNumber);
     
     oSelf.txRemoteAddress = oSelf.__oPythonSocket.getpeername();
     oSelf.uRemotePortNumber = oSelf.txRemoteAddress[1];
     oSelf.sbRemoteHostname = sbzRemoteHostname if fbIsProvided(sbzRemoteHostname) else bytes(oSelf.txRemoteAddress[0], 'latin1');
-    oSelf.sbRemoteAddress = b"%s:%d" % (oSelf.sbRemoteHostname, oSelf.uRemotePortNumber);
+    oSelf.sbRemoteAddress = fsbAddressFromHostnameAndPort(oSelf.sbRemoteHostname, oSelf.uRemotePortNumber);
     
     oSelf.fAddEvents(
       "bytes read",
