@@ -151,7 +151,7 @@ class cTCPIPConnection(cWithCallbacks):
           if oConnection.fbBytesAreAvailableForReading():
             aoConnectionsWithBytesAvailableForReading.append(oConnection);
           else:
-            aoPythonSockets.append(oConnection.oPythonSocket);
+            aoPythonSockets.append(oConnection.foGetPythonSocketForSelect());
       if aoConnectionsWithBytesAvailableForReading:
         # There currently are connections with bytes available for reading.
         return aoConnectionsWithBytesAvailableForReading;
@@ -229,6 +229,10 @@ class cTCPIPConnection(cWithCallbacks):
   def oPythonSocket(oSelf):
     # For use with "regular" Python code that doesn't accept cTCPConnection instances.
     # Please try to avoid using this, as it defeats the purpose of having this class.
+    return oSelf.__oPythonSocket;
+  def foGetPythonSocketForSelect(oSelf):
+    # For use with "select.select". Please only use the value in select.select(). Any other use can causes
+    # issues in buffered sockets.
     return oSelf.__oPythonSocket;
   @property
   def __oPythonSocket(oSelf):
