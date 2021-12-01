@@ -39,6 +39,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     # Please try to avoid using this, as it defeats the purpose of having this class.
     # Also, it interferes with the functionality of this class, which is why it can only be
     # handed out if the buffer is empty and why the class methods stop working:
+    raise AssertionError("You're not supposed to do this");
     assert len(oSelf.__sbReadBuffer) == 0, \
         "Cannot provide a Python socket instance because there are %d bytes in the buffer" % len(oSelf.__sbReadBuffer);
     oSelf.__bPythonSocketAccessProvided = True;
