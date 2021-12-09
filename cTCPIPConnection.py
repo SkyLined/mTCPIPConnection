@@ -247,12 +247,12 @@ class cTCPIPConnection(cWithCallbacks):
     
     oSelf.txLocalAddress = oSelf.__oPythonSocket.getsockname();
     oSelf.uLocalPortNumber = oSelf.txLocalAddress[1];
-    oSelf.sbLocalHostname = bytes(oSelf.txLocalAddress[0], 'latin1');
+    oSelf.sbLocalHostname = bytes(oSelf.txLocalAddress[0], "ascii", "strict");
     oSelf.sbLocalAddress = fsbAddressFromHostnameAndPort(oSelf.sbLocalHostname, oSelf.uLocalPortNumber);
     
     oSelf.txRemoteAddress = oSelf.__oPythonSocket.getpeername();
     oSelf.uRemotePortNumber = oSelf.txRemoteAddress[1];
-    oSelf.sbRemoteHostname = sbzRemoteHostname if fbIsProvided(sbzRemoteHostname) else bytes(oSelf.txRemoteAddress[0], 'latin1');
+    oSelf.sbRemoteHostname = sbzRemoteHostname if fbIsProvided(sbzRemoteHostname) else bytes(oSelf.txRemoteAddress[0], "ascii", "strict");
     oSelf.sbRemoteAddress = fsbAddressFromHostnameAndPort(oSelf.sbRemoteHostname, oSelf.uRemotePortNumber);
     
     oSelf.fAddEvents(
