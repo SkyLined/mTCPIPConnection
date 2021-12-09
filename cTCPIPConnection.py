@@ -39,6 +39,10 @@ class cTCPIPConnection(cWithCallbacks):
   bSSLIsSupported = m0SSL is not None;
   n0DefaultConnectTimeoutInSeconds = 5; # How long to try to connect before giving up?
   uDefaultReadChunkSize = 0x100 * 0x400; # How many bytes to try to read if we do not know how many are comming.
+  if m0SSL is not None:
+    tcExceptions = (cTCPIPException, m0SSL.mExceptions.cSSLException);
+  else:
+    tcExceptions = (cTCPIPException,);
   
   @classmethod
   @ShowDebugOutput
