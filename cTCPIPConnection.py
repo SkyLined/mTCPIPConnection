@@ -184,7 +184,7 @@ class cTCPIPConnection(cWithCallbacks):
     # select.select does not work well on secure sockets, so we use the non-secure sockets
     # as proxies; there may be SSL traffic without data being send from the remote end, so
     # we may flag a connection as having data to be read when it has none.
-    n0EndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds else None;
+    n0EndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     while 1:
       aoConnectionsWithBytesAvailableForReading = [];
       aoPythonSockets = [];
@@ -200,8 +200,8 @@ class cTCPIPConnection(cWithCallbacks):
       if not aoPythonSockets:
         return []; # All connections have been closed.
       # Wait until the python sockets become readable, shutdown or closed:
-      n0TimeoutInSeconds = n0EndTime - time.time() if n0EndTime else None;
       if not select.select(aoPythonSockets, [], [], n0TimeoutInSeconds)[0]:
+      n0TimeoutInSeconds = n0EndTime - time.time() if n0EndTime is not None else None;
         return []; # Waiting timed out.
   
   @ShowDebugOutput
@@ -566,12 +566,12 @@ class cTCPIPConnection(cWithCallbacks):
   def fsbReadBytesUntilDisconnected(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, sWhile = "reading bytes until disconnected"):
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
-    n0EndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds else None;
+    n0EndTime = (time.time() + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
     sbBytes = b"";
     u0MaxNumberOfBytesRemaining = u0MaxNumberOfBytes;
     try:
       while u0MaxNumberOfBytesRemaining is None or u0MaxNumberOfBytesRemaining > 0:
-        n0TimeoutInSeconds = n0EndTime - time.time() if n0EndTime is not None else None;
+        n0TimeoutInSeconds = (n0EndTime - time.time()) if n0EndTime is not None else None;
         oSelf.fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds, sWhile);
         sbBytes += oSelf.fsbReadAvailableBytes(u0MaxNumberOfBytes = u0MaxNumberOfBytesRemaining, sWhile = sWhile);
     except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException) as oException:
@@ -589,7 +589,7 @@ class cTCPIPConnection(cWithCallbacks):
         "uNumberOfBytesWritten": 0, "n0TimeoutInSeconds": n0TimeoutInSeconds};
     oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True);
     nStartTime = time.time();
-    n0EndTime = nStartTime + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
+    n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
     uTotalNumberOfBytesWritten = 0;
     while uTotalNumberOfBytesWritten < uNumberOfBytesToWrite:
       if n0EndTime is not None and time.time() >= n0EndTime:
