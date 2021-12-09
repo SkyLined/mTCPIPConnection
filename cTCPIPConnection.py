@@ -43,11 +43,16 @@ class cTCPIPConnection(cWithCallbacks):
   @classmethod
   @ShowDebugOutput
   def foConnectTo(cClass, \
-    sbHostname, uPortNumber, n0zConnectTimeoutInSeconds = zNotProvided,
+    sbHostnameOrIPAddress, uPortNumber, n0zConnectTimeoutInSeconds = zNotProvided,
     o0SSLContext = None, n0zSecureTimeoutInSeconds = zNotProvided,
-    f0ResolveHostnameCallback = None,
+    f0HostnameOrIPAddressInvalidCallback = None,
+    f0ResolvingHostnameCallback = None,
+    f0ResolvingHostnameFailedCallback = None,
+    f0HostnameResolvedToIPAddressCallback = None,
+    f0ConnectingToIPAddressCallback = None,
+    f0ConnectingToIPAddressFailedCallback = None,
   ):
-    fAssertType("sbHostname", sbHostname, bytes);
+    fAssertType("sbHostnameOrIPAddress", sbHostnameOrIPAddress, bytes);
     fAssertType("uPortNumber", uPortNumber, int);
     fAssertType("n0zConnectTimeoutInSeconds", n0zConnectTimeoutInSeconds, int, float, zNotProvided, None);
     if m0SSL:
@@ -58,27 +63,42 @@ class cTCPIPConnection(cWithCallbacks):
     fAssertType("n0zSecureTimeoutInSeconds", n0zSecureTimeoutInSeconds, int, float, zNotProvided, None);
     n0ConnectTimeoutInSeconds = fxGetFirstProvidedValue(n0zConnectTimeoutInSeconds, cClass.n0DefaultConnectTimeoutInSeconds);
     # Resolve hostname
-    sLowerHostname = str(sbHostname, "ascii", "strict").lower();
-    dxDetails = {"sbHostname": sbHostname, "uPortNumber": uPortNumber};
+    sLowerHostname = str(sbHostnameOrIPAddress, "ascii", "strict").lower();
+    dxDetails = {"sbHostnameOrIPAddress": sbHostnameOrIPAddress, "uPortNumber": uPortNumber};
+    # We may at some poing special case IP addresses and skip resolving them, as this adds no value.
+    if f0ResolvingHostnameCallback:
+      f0ResolvingHostnameCallback(sbHostname = sbHostnameOrIPAddress);
     try:
       atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, proto = socket.IPPROTO_TCP, flags = socket.AI_CANONNAME)
     except Exception as oException:
-      if fbExceptionMeansSocketHostnameCannotBeResolved(oException):
-        raise cDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
-      elif fbExceptionMeansSocketAddressIsInvalid(oException):
+      if fbExceptionMeansSocketAddressIsInvalid(oException):
+        if f0HostnameOrIPAddressInvalidCallback:
+          f0HostnameOrIPAddressInvalidCallback(sbHostnameOrIPAddress = sbHostnameOrIPAddress);
         raise cTCPIPInvalidAddressException("Invalid hostname", dxDetails);
+      elif fbExceptionMeansSocketHostnameCannotBeResolved(oException):
+        if f0ResolvingHostnameFailedCallback:
+          f0ResolvingHostnameFailedCallback(sbHostname = sbHostnameOrIPAddress);
+        raise cDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
       else:
         raise;
     uIndex = 0;
     for (iFamily, iType, iProto, sCanonicalName, txAddress) in atxAddressInfo:
+      if iFamily not in [socket.AF_INET, socket.AF_INET6]:
+        continue;
       uIndex += 1;
       bIsLastAddressInfo = uIndex == len(atxAddressInfo);
-      if f0ResolveHostnameCallback:
-        f0ResolveHostnameCallback(sbHostname = sbHostname, iFamily = iFamily, sCanonicalName = sCanonicalName, sIPAddress = txAddress[0]);
-      dxDetails = {"sbHostname": sbHostname, "uPortNumber": uPortNumber, "n0ConnectTimeoutInSeconds": n0ConnectTimeoutInSeconds};
       sIPAddress = txAddress[0];
       if sIPAddress.lower() != sLowerHostname:
-        dxDetails["sIPAddress"] = sIPAddress;
+        if f0HostnameResolvedToIPAddressCallback:
+          f0HostnameResolvedToIPAddressCallback(
+            sbHostname = sbHostnameOrIPAddress,
+            sIPAddress = sIPAddress,
+            sCanonicalName = sCanonicalName
+          );
+        sbzHostname = sbHostnameOrIPAddress;
+      else:
+        sbzHostname = zNotProvided;
+      dxDetails = {"sIPAddress": sIPAddress, "uPortNumber": uPortNumber, "sbzHostname": sbzHostname, "n0ConnectTimeoutInSeconds": n0ConnectTimeoutInSeconds};
       if sCanonicalName.lower() != sLowerHostname:
         dxDetails["sCanonicalName"] = sCanonicalName;
       fShowDebugOutput("Connecting to %s:%d (%saddress %s)..." % (
@@ -99,14 +119,19 @@ class cTCPIPConnection(cWithCallbacks):
           oPythonSocket.setsockopt(xType,  getattr(socket, sName), xValue);
         except OSError:
           pass;
-      
+      if f0ConnectingToIPAddressCallback:
+        f0ConnectingToIPAddressCallback(
+          sbHostnameOrIPAddress = sbHostnameOrIPAddress,
+          uPortNumber = uPortNumber,
+          sIPAddress = sIPAddress,
+          sbzHostname = sbzHostname,
+        );
       oPythonSocket.settimeout(n0ConnectTimeoutInSeconds);
       nStartTime = time.time();
       try:
         oPythonSocket.connect(txAddress);
       except Exception as oException:
         fShowDebugOutput("Exception during `connect()`: %s(%s)" % (oException.__class__.__name__, oException));
-        if not bIsLastAddressInfo: continue; # try the next address
         dxDetails["nDuration"] = time.time() - nStartTime;
         if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException("Invalid hostname", dxDetails);
@@ -120,18 +145,31 @@ class cTCPIPConnection(cWithCallbacks):
           # can control this, or disable it entirely.
           # If `n0ConnectTimeoutInSeconds` is smaller than the server side timeout that triggers a refused connection,
           # you will see a `cTCPIPConnectTimeoutException` as expected.
-          raise cTCPIPConnectTimeoutException("Cannot connect to server", dxDetails);
+          oException = cTCPIPConnectTimeoutException("Cannot connect to server", dxDetails);
         elif fbExceptionMeansSocketConnectionRefused(oException):
-          raise cTCPIPConnectionRefusedException("Connection refused by server", dxDetails);
+          oException = cTCPIPConnectionRefusedException("Connection refused by server", dxDetails);
         else:
           raise;
-      oSelf = cClass(oPythonSocket, sbzRemoteHostname = sbHostname, bCreatedLocally = True);
+        if f0ConnectingToIPAddressFailedCallback:
+          f0ConnectingToIPAddressFailedCallback(
+            oException = oException,
+            sbHostnameOrIPAddress = sbHostnameOrIPAddress,
+            uPortNumber = uPortNumber,
+            sIPAddress = sIPAddress,
+            sbzHostname = sbzHostname,
+          );
+        # We will ignore this exception and try the next address unless there are no more addresses.
+        if bIsLastAddressInfo:
+          raise oException;
+        else:
+          continue;
+      oConnection = cClass(oPythonSocket, sbzRemoteHostname = sbzHostname, bCreatedLocally = True);
       if o0SSLContext:
-        oSelf.fSecure(
+        oConnection.fSecure(
           oSSLContext = o0SSLContext,
           n0zTimeoutInSeconds = n0zSecureTimeoutInSeconds,
        );
-      return oSelf;
+      return oConnection;
     raise AssertionFailure("socket.getaddrinfo(...) return an empty list!?");
     
   @classmethod
