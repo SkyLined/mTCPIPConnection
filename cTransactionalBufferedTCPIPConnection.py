@@ -33,9 +33,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       for oConnection in aoConnections:
         try:
           oConnection.__fStartWaitingUntilSomeState(sWaitingUntilState);
-        except cTransactionalConnectionCannotBeUsedConcurrently:
+        except cTransactionalConnectionCannotBeUsedConcurrently as oException:
           assert oConnection.bStopping, \
-            "Cannot wait until %s on %s" % (sWaitingUntilState, repr(oConnection));
+            "Cannot wait until %s on %s: %s" % (sWaitingUntilState, repr(oConnection), repr(oException));
         else:
           aoConnectionsWaitingForSomeState.append(oConnection);
       aoConnectionsInSomeState = faoWaitUntilSomeState(aoConnectionsWaitingForSomeState, n0WaitTimeoutInSeconds);
