@@ -209,7 +209,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__oPropertiesLock.fRelease();
   
   def __fEndWaitingUntilSomeState(oSelf, sWaitingUntilState, bStartTransaction = False, n0TransactionTimeoutInSeconds = None):
-    oSelf.__oPropertiesLock.fbAcquire();
+    oSelf.__oPropertiesLock.fAcquire();
     try:
       assert sWaitingUntilState == oSelf.__s0WaitingUntilState, \
           "Code was %s but is now ending waiting until %s!?" % \
@@ -234,7 +234,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @property
   def n0TransactionTimeoutInSeconds(oSelf):
-    oSelf.__oPropertiesLock.fbAcquire();
+    oSelf.__oPropertiesLock.fAcquire();
     try:
       assert oSelf.bInTransaction, \
           "A transaction must be started before you can get its timeout!";
@@ -246,7 +246,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   def fEndTransaction(oSelf):
     if oSelf.__bStopping:
       super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
-    oSelf.__oPropertiesLock.fbAcquire();
+    oSelf.__oPropertiesLock.fAcquire();
     try:
       assert oSelf.__oTransactionLock.fbRelease(), \
           "Cannot unlock transaction lock (%s)!?" % oSelf.__oTransactionLock;
