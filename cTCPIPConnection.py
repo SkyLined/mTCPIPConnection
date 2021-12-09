@@ -187,21 +187,22 @@ class cTCPIPConnection(cWithCallbacks):
     n0EndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     while 1:
       aoConnectionsWithBytesAvailableForReading = [];
-      aoPythonSockets = [];
+      aiPythonSocketFileNos = [];
       for oConnection in aoConnections:
-        if oConnection.bConnected:
-          if oConnection.fbBytesAreAvailableForReading():
-            aoConnectionsWithBytesAvailableForReading.append(oConnection);
-          else:
-            aoPythonSockets.append(oConnection.foGetPythonSocketForSelect());
+        if oConnection.fbBytesAreAvailableForReading():
+          aoConnectionsWithBytesAvailableForReading.append(oConnection);
+        else:
+          iFileNo = oConnection.__oPythonSocket.fileno();
+          if oConnection.bConnected:
+            aiPythonSocketFileNos.append(iFileNo);
       if aoConnectionsWithBytesAvailableForReading:
         # There currently are connections with bytes available for reading.
         return aoConnectionsWithBytesAvailableForReading;
-      if not aoPythonSockets:
-        return []; # All connections have been closed.
+      if not aiPythonSocketFileNos:
+        return []; # All connections have been closed; no connection left to wait for.
       # Wait until the python sockets become readable, shutdown or closed:
-      if not select.select(aoPythonSockets, [], [], n0TimeoutInSeconds)[0]:
       n0TimeoutInSeconds = n0EndTime - time.time() if n0EndTime is not None else None;
+      if len(select.select(aiPythonSocketFileNos, [], [], n0TimeoutInSeconds)[0]) == 0:
         return []; # Waiting timed out.
   
   @ShowDebugOutput
@@ -267,15 +268,6 @@ class cTCPIPConnection(cWithCallbacks):
   @property
   def __oSecurePythonSocket(oSelf):
     return oSelf.__aoPythonSockets[-1] if len(oSelf.__aoPythonSockets) > 1 else None;
-  @property
-  def oPythonSocket(oSelf):
-    # For use with "regular" Python code that doesn't accept cTCPConnection instances.
-    # Please try to avoid using this, as it defeats the purpose of having this class.
-    return oSelf.__oPythonSocket;
-  def foGetPythonSocketForSelect(oSelf):
-    # For use with "select.select". Please only use the value in select.select(). Any other use can causes
-    # issues in buffered sockets.
-    return oSelf.__oPythonSocket;
   @property
   def __oPythonSocket(oSelf):
     # For internal use only.
@@ -366,6 +358,9 @@ class cTCPIPConnection(cWithCallbacks):
   def __fCheckIfSocketAllowsReading(oSelf, sWhile):
     assert oSelf.__bShouldAllowReading, \
         "Check if __bShouldAllowReading is True before calling!";
+    if oSelf.__oPythonSocket.fileno() == -1:
+      oSelf.__fHandleDisconnect();
+      return False;
     # Check if it is not shutdown or disconnected at this time.
     try:
       # This can also throw an exception if the socket has been closed, so it's
@@ -404,11 +399,13 @@ class cTCPIPConnection(cWithCallbacks):
   def __fCheckIfSocketAllowsWriting(oSelf, sWhile):
     assert oSelf.__bShouldAllowWriting, \
         "Check if __bShouldAllowWriting is True before calling!";
+    iFileNo = oSelf.__oPythonSocket.fileno();
+    if iFileNo == -1:
+      oSelf.__fHandleDisconnect();
+      return False;
     # Check if it is not shutdown for writing or disconnected at this time.
-    aoUnused, aoWritableSockets, aoUnused2 = select.select(
-      [], [oSelf.__oPythonSocket], [], 0
-    );
-    if len(aoWritableSockets) == 0:
+    bIsWritable = len(select.select([], [iFileNo], [], 0)[1]) == 1;
+    if not bIsWritable:
       oSelf.__fHandleShutdownForWriting(sWhile);
     try:
       # This can also throw an exception if the socket has been closed, so it's
@@ -436,6 +433,8 @@ class cTCPIPConnection(cWithCallbacks):
   
   @property
   def bConnected(oSelf):
+    if oSelf.__oPythonSocket.fileno() == -1:
+      oSelf.__fHandleDisconnect();
     return oSelf.__oTerminatedLock.bLocked;
   
   @property
@@ -443,8 +442,11 @@ class cTCPIPConnection(cWithCallbacks):
     return not oSelf.bConnected;
   
   def fThrowDisconnectedOrShutdownExceptionIfApplicable(oSelf, sWhile, dxDetails, bShouldAllowReading = False, bShouldAllowWriting = False, bMustThrowException = False):
-    if oSelf.__bShouldAllowReading: oSelf.__fCheckIfSocketAllowsReading(sWhile);
-    if oSelf.__bShouldAllowWriting: oSelf.__fCheckIfSocketAllowsWriting(sWhile);
+    if oSelf.__oPythonSocket.fileno() == -1:
+      oSelf.__fHandleDisconnect();
+    else:
+      if oSelf.__bShouldAllowReading: oSelf.__fCheckIfSocketAllowsReading(sWhile);
+      if oSelf.__bShouldAllowWriting: oSelf.__fCheckIfSocketAllowsWriting(sWhile);
     if not oSelf.bConnected:
       raise cTCPIPConnectionDisconnectedException("Disconnected while %s" % sWhile, dxDetails);
     if bShouldAllowReading and not oSelf.__bShouldAllowReading:
@@ -454,22 +456,27 @@ class cTCPIPConnection(cWithCallbacks):
     assert not bMustThrowException, \
         "The connection was expected to be shut down or disconnected but neither was true.";
   
+  def __fbSelectForBytesAvailable(oSelf, n0TimeoutInSeconds, sWhile):
+    iFileNo = oSelf.__oPythonSocket.fileno();
+    if iFileNo == -1:
+      oSelf.__fHandleDisconnect();
+      bReadable = False;
+    else:
+      fShowDebugOutput("Checking if there is a signal on the socket...");
+      (aiReadableFileNos, xIgnore, aiErrorFileNos) = select.select([iFileNo], [], [iFileNo], n0TimeoutInSeconds);
+      bReadable = len(aiErrorFileNos) == 0;
+    if not bReadable:
+      oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True, bMustThrowException = True);
+    return len(aiReadableFileNos) == 1;
+  
   @ShowDebugOutput
   def fbBytesAreAvailableForReading(oSelf, sWhile = "checking if bytes are available for reading"):
     # Can throw a shutdown or disconnected exception.
     # Returns true if there are any bytes that can currently to be read.
-    oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True);
-    fShowDebugOutput("Checking if there is a signal on the socket...");
-    aoReadableSockets, aoUnused, aoErrorSockets = select.select(
-      [oSelf.__oPythonSocket], [], [oSelf.__oPythonSocket], 0
-    );
-    if len(aoErrorSockets) == 0 and len(aoReadableSockets) == 0:
-      # No errors and no readable sockets means no bytes available for reading.
-      return False;
-    fShowDebugOutput("Checking if signal means data is available or socket is closed...");
-    oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True);
-    fShowDebugOutput("Data should be available for reading now.");
-    return True;
+    if oSelf.__fbSelectForBytesAvailable(0, sWhile):
+      fShowDebugOutput("Data should be available for reading now.");
+      return True;
+    return False;
   
   @ShowDebugOutput
   def fWaitUntilBytesAreAvailableForReading(oSelf, n0TimeoutInSeconds = None, sWhile = "waiting for bytes to become available for reading"):
@@ -484,21 +491,13 @@ class cTCPIPConnection(cWithCallbacks):
     # closed.
     # Reading from the socket did not cause an exception, so the socket isn't
     # shutdown or closed yet.
-    oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True);
-    fShowDebugOutput("Waiting for a sigal on the socket...");
-    aoReadableSockets, aoUnused, aoErrorSockets = select.select(
-      [oSelf.__oPythonSocket], [], [oSelf.__oPythonSocket], n0TimeoutInSeconds
+    if oSelf.__fbSelectForBytesAvailable(n0TimeoutInSeconds, sWhile):
+      fShowDebugOutput("Data should be available for reading now.");
+      return True;
+    raise cTCPIPDataTimeoutException(
+      "Timeout while %s" % sWhile,
+      {"n0TimeoutInSeconds": n0TimeoutInSeconds}
     );
-    if len(aoErrorSockets) == 0 and len(aoReadableSockets) == 0:
-      # No errors and no readable sockets means no bytes available for reading
-      # before the timeout.
-      raise cTCPIPDataTimeoutException(
-        "Timeout while %s" % sWhile,
-        {"n0TimeoutInSeconds": n0TimeoutInSeconds}
-      );
-    fShowDebugOutput("Checking if signal means data is available or socket is closed...");
-    oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True);
-    fShowDebugOutput("Data should be available for reading now.");
   
   @ShowDebugOutput
   def fsbReadAvailableBytes(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, sWhile = "reading available bytes"):
@@ -512,11 +511,7 @@ class cTCPIPConnection(cWithCallbacks):
     nStartTime = time.time();
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
     while n0EndTime is None or time.time() < n0EndTime:
-      fShowDebugOutput("Checking if there is a signal on the socket...");
-      aoReadableSockets, aoUnused, aoErrorSockets = select.select(
-        [oSelf.__oPythonSocket], [], [oSelf.__oPythonSocket], 0
-      );
-      if len(aoReadableSockets) == 0 and len(aoErrorSockets) == 0:
+      if not oSelf.__fbSelectForBytesAvailable(0, sWhile):
         fShowDebugOutput("No more data available for reading now.");
         break;
       # Readable socket and no errors while reading 0 bytes means bytes are
@@ -628,6 +623,9 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.__fShutdown(bForReading = True, bForWriting = True);
   
   def __fShutdown(oSelf, bForReading = False, bForWriting = False):
+    if oSelf.__oPythonSocket.fileno() == -1:
+      oSelf.__fHandleDisconnect();
+      return;
     # Shutting down a secure connection does not appear to have the expected
     # results; we'll do it anyway but be aware that it does not appear that
     # the remote is notified of the shutdown.
@@ -714,7 +712,7 @@ class cTCPIPConnection(cWithCallbacks):
   def __fHandleDisconnect(oSelf):
     oSelf.__oConnectedPropertyAccessLock.fAcquire();
     try:
-      if not oSelf.bConnected:
+      if not oSelf.__oTerminatedLock.bLocked:
         return;
       try:
         oSelf.__oNonSecurePythonSocket.close();
