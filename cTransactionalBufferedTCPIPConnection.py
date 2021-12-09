@@ -262,12 +262,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     bStartTransaction = True,
     bEndTransaction = True,
   ):
-    # We'll (re-)start the transaction, but we do not know the default timeout for securing the connection.
-    # However, if we also end the connection, we can use None for the transaction timeout as `fSecure` should
-    # detect and report the timeout, so applying a timeout to the transaction would be superfluous. However,
-    # if the caller wants to leave the transaction open, they MUST provide a value for `n0zTimeoutInSeconds`:
-    assert bEndTransaction or fbIsProvided(n0zTimeoutInSeconds), \
-        "Cannot use `n0zTimeoutInSeconds = zNotProvided` combined with `bEndTransaction = False`";
     n0TimeoutInSeconds = fx0GetProvidedValueOrNone(n0zTimeoutInSeconds);
     if bStartTransaction:
       oSelf.fStartTransaction(n0TimeoutInSeconds);
