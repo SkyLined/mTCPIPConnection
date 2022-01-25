@@ -82,7 +82,8 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     if len(oSelf.__sbReadBuffer) == 0:
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(*txArguments, **dxArguments);
   
-  def fsbReadAvailableBytes(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None):
+  @ShowDebugOutput
+  def fsbReadAvailableBytes(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, *txArguments, **dxArguments):
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     assert not oSelf.__bPythonSocketAccessProvided, \
@@ -93,6 +94,8 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
         oSelf.__sbReadBuffer += super(cBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes(
           u0MaxNumberOfBytes = u0AdditionalBytesNeeded,
           n0TimeoutInSeconds = n0TimeoutInSeconds,
+          *txArguments,
+          **dxArguments,
         );
       except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException) as oException:
         # If we have no bytes in the buffer and we cannot read bytes because the
