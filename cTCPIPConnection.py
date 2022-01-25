@@ -255,12 +255,24 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.sbRemoteHostname = sbzRemoteHostname if fbIsProvided(sbzRemoteHostname) else bytes(oSelf.txRemoteAddress[0], "ascii", "strict");
     oSelf.sbRemoteAddress = fsbAddressFromHostnameAndPort(oSelf.sbRemoteHostname, oSelf.uRemotePortNumber);
     
+    oSelf.__uTerminatedCallbackPostponeCounter = 0;
+    oSelf.__bTerminatedCallbackPostponed = False;
+    
     oSelf.fAddEvents(
       "bytes read",
       "bytes written",
       "shutdown for reading", "shutdown for writing", "shutdown",
       "terminated"
     );
+  
+  def fPostponeTerminatedCallback(oSelf):
+    oSelf.__uTerminatedCallbackPostponeCounter += 1;
+  
+  def fFireTerminatedCallbackIfPostponed(oSelf):
+    oSelf.__uTerminatedCallbackPostponeCounter -= 1;
+    if oSelf.__bTerminatedCallbackPostponed and oSelf.__uTerminatedCallbackPostponeCounter == 0:
+      oSelf.__bTerminatedCallbackPostponed = False;
+      oSelf.fFireCallbacks("terminated");
   
   @property
   def __oNonSecurePythonSocket(oSelf):
@@ -760,7 +772,12 @@ class cTCPIPConnection(cWithCallbacks):
     finally:
       oSelf.__oConnectedPropertyAccessLock.fRelease();
     fShowDebugOutput("%s terminating." % oSelf);
-    oSelf.fFireCallbacks("terminated");
+    # Fire terminated event now if we are not holding it.
+    if oSelf.__uTerminatedCallbackPostponeCounter == 0:
+      oSelf.fFireCallbacks("terminated");
+    else:
+      # Fire terminated event as soon as they are released.
+      oSelf.__bTerminatedCallbackPostponed = True;
   
   def fasGetDetails(oSelf):
     # This is done without a property lock, so race-conditions exist and it
