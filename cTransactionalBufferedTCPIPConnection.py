@@ -154,6 +154,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__n0TransactionEndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
+    oSelf.fPostponeTerminatedCallback();
     oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
   
   @ShowDebugOutput
@@ -180,6 +181,34 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
     return True;
   
+  @property
+  def bInTransaction(oSelf):
+    return oSelf.__oTransactionLock.bLocked;
+  
+  @property
+  def n0TransactionTimeoutInSeconds(oSelf):
+    oSelf.__oPropertiesLock.fAcquire();
+    try:
+      assert oSelf.bInTransaction, \
+          "A transaction must be started before you can get its timeout!";
+      return max(0, oSelf.__n0TransactionEndTime - time.time()) if oSelf.__n0TransactionEndTime is not None else None;
+    finally:
+      oSelf.__oPropertiesLock.fRelease();
+  
+  @ShowDebugOutput
+  def fEndTransaction(oSelf):
+    if oSelf.__bStopping:
+      super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
+    oSelf.__oPropertiesLock.fAcquire();
+    try:
+      oSelf.__oTransactionLock.fRelease();
+      fShowDebugOutput("Ended transaction");
+      oSelf.__n0TransactionEndTime = None;
+    finally:
+      oSelf.__oPropertiesLock.fRelease();
+    oSelf.fFireCallbacks("transaction ended");
+    oSelf.fFireTerminatedCallbackIfPostponed();
+  
   def __fStartWaitingUntilSomeState(oSelf, sWaitingUntilState):
     oSelf.__oPropertiesLock.fAcquire();
     try:
@@ -200,8 +229,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
           );
       finally:
         # We are not starting a transaction yet, so do not keep this lock.
-        assert oSelf.__oTransactionLock.fbRelease(), \
-            "Cannot unlock transaction lock (%s)!?" % oSelf.__oTransactionLock;
+        oSelf.__oTransactionLock.fRelease();
         fShowDebugOutput("Ended transaction to start waiting until %s" % sWaitingUntilState);
       fShowDebugOutput("Waiting until %s..." % sWaitingUntilState);
       oSelf.__s0WaitingUntilState = sWaitingUntilState;
@@ -227,34 +255,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__oPropertiesLock.fRelease();
     if bStartTransaction:
       oSelf.fFireCallbacks("transaction started", {"n0TransactionTimeoutInSeconds": n0TransactionTimeoutInSeconds});
-  
-  @property
-  def bInTransaction(oSelf):
-    return oSelf.__oTransactionLock.bLocked;
-  
-  @property
-  def n0TransactionTimeoutInSeconds(oSelf):
-    oSelf.__oPropertiesLock.fAcquire();
-    try:
-      assert oSelf.bInTransaction, \
-          "A transaction must be started before you can get its timeout!";
-      return max(0, oSelf.__n0TransactionEndTime - time.time()) if oSelf.__n0TransactionEndTime is not None else None;
-    finally:
-      oSelf.__oPropertiesLock.fRelease();
-  
-  @ShowDebugOutput
-  def fEndTransaction(oSelf):
-    if oSelf.__bStopping:
-      super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
-    oSelf.__oPropertiesLock.fAcquire();
-    try:
-      assert oSelf.__oTransactionLock.fbRelease(), \
-          "Cannot unlock transaction lock (%s)!?" % oSelf.__oTransactionLock;
-      fShowDebugOutput("Ended transaction");
-      oSelf.__n0TransactionEndTime = None;
-    finally:
-      oSelf.__oPropertiesLock.fRelease();
-    oSelf.fFireCallbacks("transaction ended");
   
   def fSecure(oSelf,
     oSSLContext,
@@ -293,7 +293,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
       finally:
         if bTransactionStarted:
-          assert oSelf.__oTransactionLock.fbRelease(), \
+          oSelf.__oTransactionLock.fRelease(), \
               "Cannot unlock transaction lock (%s)!?" % oSelf.__oTransactionLock;
           fShowDebugOutput("Ended transaction to stop connection");
   
