@@ -561,17 +561,38 @@ class cTCPIPConnection(cWithCallbacks):
   def fsbReadBytesUntilDisconnected(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, sWhile = "reading bytes until disconnected"):
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
-    n0EndTime = (time.time() + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
-    sbBytes = b"";
+    dxDetails = {
+      "u0MaxNumberOfBytes": u0MaxNumberOfBytes, 
+      "n0TimeoutInSeconds": n0TimeoutInSeconds,
+      "nDuration": 0,
+      "sbBytesRead": b"",
+      "uNumberOfBytesRead": 0,
+    };
+    nStartTime = time.time();
+    n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
+    sbBytesRead = b"";
     u0MaxNumberOfBytesRemaining = u0MaxNumberOfBytes;
     try:
       while u0MaxNumberOfBytesRemaining is None or u0MaxNumberOfBytesRemaining > 0:
         n0TimeoutInSeconds = (n0EndTime - time.time()) if n0EndTime is not None else None;
+        if n0TimeoutInSeconds is not None and n0TimeoutInSeconds < 0:
+          raise cTCPIPDataTimeoutException("Timeout while %s" % sWhile, dxDetails);
         oSelf.fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds, sWhile);
-        sbBytes += oSelf.fsbReadAvailableBytes(u0MaxNumberOfBytes = u0MaxNumberOfBytesRemaining, sWhile = sWhile);
+        sbAvailableBytes = oSelf.fsbReadAvailableBytes(u0MaxNumberOfBytes = u0MaxNumberOfBytesRemaining, sWhile = sWhile);
+        if len(sbAvailableBytes) == 0:
+          # select.select reported a signal on the socket. If it did not signal
+          # there was data available it means the connection was shutdown or
+          # disconnected. We do not know which, so we assume a shutdown.
+          fShowDebugOutput("No bytes read indicates the socket was shutdown and/or disconnected.");
+          oSelf.__fHandleShutdownForReading(sWhile);
+          break;
+        sbBytesRead += sbAvailableBytes;
+        dxDetails["sbBytesRead"] = sbBytesRead;
+        dxDetails["uNumberOfBytesRead"] = len(sbBytesRead);
+        dxDetails["nDuration"] = time.time() - nStartTime;
     except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException) as oException:
       pass;
-    return sbBytes;
+    return sbBytesRead;
   
   @ShowDebugOutput
   def fWriteBytes(oSelf, sbBytes, n0TimeoutInSeconds = None, sWhile = "writing bytes"):
@@ -580,8 +601,13 @@ class cTCPIPConnection(cWithCallbacks):
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns once all bytes have been written.
     uNumberOfBytesToWrite = len(sbBytes);
-    dxDetails = {"sbBytes": sbBytes, "uNumberOfBytesToWrite": uNumberOfBytesToWrite, \
-        "uNumberOfBytesWritten": 0, "n0TimeoutInSeconds": n0TimeoutInSeconds};
+    dxDetails = {
+      "sbBytes": sbBytes,
+      "uNumberOfBytesToWrite": uNumberOfBytesToWrite,
+      "n0TimeoutInSeconds": n0TimeoutInSeconds,
+      "nDuration": 0,
+      "uNumberOfBytesWritten": 0,
+    };
     oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True);
     nStartTime = time.time();
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
