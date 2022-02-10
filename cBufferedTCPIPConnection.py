@@ -98,7 +98,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
           *txArguments,
           **dxArguments,
         );
-      except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException) as oException:
+      except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException):
         # If we have no bytes in the buffer and we cannot read bytes because the
         # connection was shut down or disconnected, throw the relevant exception.
         # Otherwise, we will return the bytes in the buffer.
@@ -129,7 +129,14 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
       if n0EndTime:
         n0TimeoutInSeconds = n0EndTime - time.time();
         if n0TimeoutInSeconds <= 0:
-          raise cTCPIPDataTimeoutException("Timeout while %s" % sWhile, {"uMinNumberOfBytes": uMinNumberOfBytes});
+          raise cTCPIPDataTimeoutException(
+            "Timeout while %s" % sWhile,
+            o0Connection = oSelf,
+            dxDetails = {
+              "uNumberOfBytes": len(oSelf.__sbReadBuffer),
+              "uMinNumberOfBytes": uMinNumberOfBytes,
+            },
+          );
       else:
         n0TimeoutInSeconds = None;
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds);

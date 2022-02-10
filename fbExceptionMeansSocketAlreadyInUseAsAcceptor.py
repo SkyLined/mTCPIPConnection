@@ -1,6 +1,8 @@
-import socket;
+import os, socket;
 
 def fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
   return (
-    (isinstance(oException, WindowsError) and oException.errno == 0x2740) # WSAEADDRINUSE
+    (isinstance(oException, OSError) and oException.errno == 0x2740) # WSAEADDRINUSE
+  ) if os.name == "nt" else (
+    (isinstance(oException, OSError) and oException.errno == 98) # 
   );

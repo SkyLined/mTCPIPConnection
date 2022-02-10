@@ -11,6 +11,7 @@ except ModuleNotFoundError as oException:
 from mNotProvided import *;
 
 from .cTCPIPConnection import cTCPIPConnection;
+from .fbExceptionMeansPortNotPermitted import fbExceptionMeansPortNotPermitted;
 from .fbExceptionMeansSocketAlreadyInUseAsAcceptor import fbExceptionMeansSocketAlreadyInUseAsAcceptor;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
@@ -75,9 +76,13 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
         atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
       except Exception as oException:
         if fbExceptionMeansSocketHostnameCannotBeResolved(oException):
-          raise cDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
+          raise cTCPIPDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
         elif fbExceptionMeansSocketAddressIsInvalid(oException):
-          raise cTCPIPInvalidAddressException("Invalid hostname", dxDetails);
+          raise cTCPIPInvalidAddressException(
+            "Invalid hostname",
+            o0Connection = None,
+            dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
+          );
         else:
           raise;
       uIndex = 0;
@@ -133,10 +138,14 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
           if fbBindToPortNumberAndSetProperties(uPortNumber):
             break;
         else:
-          raise mExceptions.cTCPIPPortAlreadyInUseAsAcceptorException(
+          raise cTCPIPNoAvailablePortsException(
             "Cannot bind server socket because all possible default ports are already in use on this system",
-            {"sbHostname": oSelf.__sbHostname, "u0DefaultPortNumber": u0DefaultPortNumber, \
-                "o0DefaultAdditionalPortNumberRange": oSelf.o0DefaultAdditionalPortNumberRange},
+            o0Connection = None,
+            dxDetails = {
+              "sbHostname": oSelf.__sbHostname,
+              "u0DefaultPortNumber": u0DefaultPortNumber,
+              "o0DefaultAdditionalPortNumberRange": oSelf.o0DefaultAdditionalPortNumberRange,
+            },
           );
     for oPythonSocket in oSelf.__aoPythonSockets:
       oPythonSocket.listen(1);

@@ -21,7 +21,7 @@ WARNING =           0x0F0E; # Yellow
 dddxTest_by_sName = {
   "unknown hostname": {
     "sbHostname": b"does.not.exist.example.com",
-    "cExpectedExceptionClass": mExceptions.cDNSUnknownHostnameException,
+    "cExpectedExceptionClass": mExceptions.cTCPIPDNSUnknownHostnameException,
   },
   "invalid address": {
     "sbHostname": b"0.0.0.0",
