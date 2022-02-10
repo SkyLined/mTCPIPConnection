@@ -265,6 +265,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   def __fEndWaitingUntilSomeState(oSelf, sWaitingUntilState, bStartTransaction = False, n0TransactionTimeoutInSeconds = None):
     oSelf.__oPropertiesLock.fAcquire();
+    if bStartTransaction:
+      oSelf.fPostponeTerminatedCallback();
+      bTransactionStarted = False;
     try:
       assert sWaitingUntilState == oSelf.__s0WaitingUntilState, \
           "Code was %s but is now ending waiting until %s!?" % \
