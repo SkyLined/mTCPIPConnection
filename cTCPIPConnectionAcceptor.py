@@ -105,46 +105,43 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
               dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
             );
           if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
-            break;
+            raise cTCPIPPortAlreadyInUseAsAcceptorException(
+              "Cannot bind server socket to port because it is already in use on this system",
+              o0Connection = None,
+              dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
+            );
           raise;
         aoPythonSockets.append(oPythonSocket);
-      else:
-        # We succesfully bound to the port on each address: return sockets.
-        oSelf.__aoPythonSockets = aoPythonSockets;
-        oSelf.__uPortNumber = uPortNumber;
-        return True;
-      # We could not bind to at list one address: close sockets and return None.
-      for oPythonSocket in aoPythonSockets:
-        oPythonSocket.close();
-      return False;
+      # We succesfully bound to the port on each address: return sockets.
+      oSelf.__aoPythonSockets = aoPythonSockets;
+      oSelf.__uPortNumber = uPortNumber;
     # END fbBindToPortNumberAndSetProperties
     if fbIsProvided(uzPortNumber):
-      if not fbBindToPortNumberAndSetProperties(uzPortNumber):
-        raise mExceptions.cTCPIPPortAlreadyInUseAsAcceptorException(
-          "Cannot bind server socket to port because it is already in use on this system",
-          {"sbHostname": oSelf.__sbHostname, "uPortNumber": uzPortNumber},
-        );
+      fBindToPortNumberOnAllAddressesAndSetProperties(uzPortNumber);
     else:
       # Try a bunch of ports until we find one that is not currently in use:
       u0DefaultPortNumber = oSelf.u0DefaultSSLPortNumber if o0SSLContext else oSelf.u0DefaultNonSSLPortNumber;
       bBound = False;
       if u0DefaultPortNumber is not None:
         fShowDebugOutput("Trying to bind to default port %d" % u0DefaultPortNumber);
-        if fbBindToPortNumberAndSetProperties(u0DefaultPortNumber):
-          bBound = True;
-        else:
+        try:
+          fBindToPortNumberOnAllAddressesAndSetProperties(u0DefaultPortNumber);
+        except (cTCPIPPortNotPermittedException, cTCPIPPortAlreadyInUseAsAcceptorException):
           if not oSelf.o0DefaultAdditionalPortNumberRange:
-            raise mExceptions.cTCPIPPortAlreadyInUseAsAcceptorException(
-              "Cannot bind server socket to default port because it is already in use on this system",
-              {"sbHostname": oSelf.__sbHostname, "uPortNumber": u0DefaultPortNumber},
-            );
+            raise;
+        else:
+          bBound = True;
       if not bBound:
         # Either no default port number was provided, or it was not available.
         # Try the range (which cannot be None because of checks in the code above).
         fShowDebugOutput("Trying to bind to default port in range %d-%d" % \
             (oSelf.o0DefaultAdditionalPortNumberRange[0], oSelf.o0DefaultAdditionalPortNumberRange[-1]));
         for uPortNumber in (oSelf.o0DefaultAdditionalPortNumberRange or []):
-          if fbBindToPortNumberAndSetProperties(uPortNumber):
+          try:
+            fBindToPortNumberOnAllAddressesAndSetProperties(uPortNumber);
+          except (cTCPIPPortNotPermittedException, cTCPIPPortAlreadyInUseAsAcceptorException):
+            pass;
+          else:
             break;
         else:
           raise cTCPIPNoAvailablePortsException(
