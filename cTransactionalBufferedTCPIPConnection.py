@@ -277,10 +277,16 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       if bStartTransaction:
         assert oSelf.__oTransactionLock.fbAcquire(), \
             "Cannot lock transaction lock (%s)!?" % oSelf.__oTransactionLock;
+        bTransactionStarted = True;
         fShowDebugOutput(oSelf, "Started transaction after waiting until %s" % sWaitingUntilState);
         oSelf.__n0TransactionEndTime = time.time() + n0TransactionTimeoutInSeconds if n0TransactionTimeoutInSeconds else None;
       oSelf.__oWaitingUntilSomeStateLock.fRelease();
       oSelf.__s0WaitingUntilState = None;
+    except:
+      if bStartTransaction:
+        if bTransactionStarted:
+          oSelf.__oTransactionLock.fbRelease();
+        oSelf.fFireTerminatedCallbackIfPostponed();
     finally:
       oSelf.__oPropertiesLock.fRelease();
     if bStartTransaction:
