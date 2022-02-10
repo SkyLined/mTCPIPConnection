@@ -219,7 +219,7 @@ class cTCPIPConnection(cWithCallbacks):
         return []; # All connections have been closed; no connection left to wait for.
       # Wait until the python sockets become readable, shutdown or closed:
       n0TimeoutInSeconds = n0EndTime - time.time() if n0EndTime is not None else None;
-      if len(select.select(aiPythonSocketFileNos, [], [], n0TimeoutInSeconds)[0]) == 0:
+      if n0TimeoutInSeconds < 0 or len(select.select(aiPythonSocketFileNos, [], [], n0TimeoutInSeconds)[0]) == 0:
         return []; # Waiting timed out.
   
   @ShowDebugOutput
