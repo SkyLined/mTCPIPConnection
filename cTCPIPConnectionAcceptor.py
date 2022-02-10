@@ -70,8 +70,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     
     # Resolve hostname
     sLowerHostname = str(oSelf.__sbHostname, "ascii", "strict").lower();
-    def fbBindToPortNumberAndSetProperties(uPortNumber):
-      dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber};
+    def fBindToPortNumberOnAllAddressesAndSetProperties(uPortNumber):
       try:
         atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
       except Exception as oException:
