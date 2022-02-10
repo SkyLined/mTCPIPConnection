@@ -95,6 +95,9 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
         try:
           oPythonSocket.bind(txAddress);
         except Exception as oException:
+          # We could not bind to at least one address (or port): close sockets and return None.
+          for oPythonSocket in aoPythonSockets:
+            oPythonSocket.close();
           if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
             break;
           raise;
