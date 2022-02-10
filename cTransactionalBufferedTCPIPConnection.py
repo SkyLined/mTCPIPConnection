@@ -203,7 +203,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     finally:
       oSelf.__oPropertiesLock.fRelease();
     oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
-    return True;
   
   @property
   def bInTransaction(oSelf):
