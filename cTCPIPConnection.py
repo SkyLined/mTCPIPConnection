@@ -333,6 +333,8 @@ class cTCPIPConnection(cWithCallbacks):
     except Exception as oException:
       fShowDebugOutput(oSelf, "Exception while wrapping socket: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketShutdown(oException):
+        fShowDebugOutput(oSelf, "Connection shut down while %s." % sWhile);
+        # The following will check what was shut doen and call __fHandleShutDownFor(Reading|Writing)
         oSelf.__fCheckIfSocketAllowsReading(sWhile);
         oSelf.__fCheckIfSocketAllowsWriting(sWhile);
         oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bMustThrowException = True);
