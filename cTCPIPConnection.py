@@ -370,21 +370,27 @@ class cTCPIPConnection(cWithCallbacks):
   
   @ShowDebugOutput
   def fStop(oSelf):
-    oSelf.__bStopping = True;
-    try:
-      oSelf.__fShutdown(
-        bForReading = oSelf.__bShouldAllowReading,
-        bForWriting = oSelf.__bShouldAllowWriting
-      );
-    except cTCPIPConnectionDisconnectedException:
-      pass;
+    if oSelf.__bStopping:
+      fShowDebugOutput(oSelf, "Already stopping");
     else:
-      oSelf.__fDisconnect();
+      fShowDebugOutput(oSelf, "Stopping...");
+      oSelf.__bStopping = True;
+      if oSelf.bConnected:
+        if oSelf.__bShouldAllowReading or oSelf.__bShouldAllowWriting:
+          try:
+            oSelf.__fShutdown(
+              bForReading = oSelf.__bShouldAllowReading,
+              bForWriting = oSelf.__bShouldAllowWriting
+            );
+          except cTCPIPConnectionDisconnectedException:
+            return;
+        oSelf.__fDisconnect();
   
   @ShowDebugOutput
   def fTerminate(oSelf):
     oSelf.__bStopping = True;
-    oSelf.__fDisconnect();
+    if oSelf.bConnected:
+      oSelf.__fDisconnect();
   
   @ShowDebugOutput
   def fbWait(oSelf, nTimeoutInSeconds):
@@ -486,7 +492,15 @@ class cTCPIPConnection(cWithCallbacks):
   def bTerminated(oSelf):
     return not oSelf.bConnected;
   
-  def fThrowDisconnectedOrShutdownExceptionIfApplicable(oSelf, sWhile, dxDetails, bShouldAllowReading = False, bShouldAllowWriting = False, bMustThrowException = False):
+  def fThrowExceptionIfShutdownOrDisconnected(oSelf):
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(
+      sWhile = "checking if connection is not shut down or disconnected",
+      dxDetails = {},
+      bShouldAllowReading = True,
+      bShouldAllowWriting = True
+    );
+  
+  def __fThrowDisconnectedOrShutdownExceptionIfApplicable(oSelf, sWhile, dxDetails, bShouldAllowReading = False, bShouldAllowWriting = False, bMustThrowException = False):
     if oSelf.__oPythonSocket.fileno() == -1:
       oSelf.__fHandleDisconnect();
     else:
@@ -514,6 +528,7 @@ class cTCPIPConnection(cWithCallbacks):
         "The connection was expected to be shut down or disconnected but neither was true.";
   
   def __fbSelectForBytesAvailable(oSelf, n0TimeoutInSeconds, sWhile):
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True);
     iFileNo = oSelf.__oPythonSocket.fileno();
     if iFileNo == -1:
       oSelf.__fHandleDisconnect();
@@ -523,7 +538,7 @@ class cTCPIPConnection(cWithCallbacks):
       (aiReadableFileNos, xIgnore, aiErrorFileNos) = select.select([iFileNo], [], [iFileNo], n0TimeoutInSeconds);
       bReadable = len(aiErrorFileNos) == 0;
     if not bReadable:
-      oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True, bMustThrowException = True);
+      oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, {}, bShouldAllowReading = True, bMustThrowException = True);
     return len(aiReadableFileNos) == 1;
   
   @ShowDebugOutput
@@ -568,7 +583,7 @@ class cTCPIPConnection(cWithCallbacks):
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     dxDetails = {"u0MaxNumberOfBytes": u0MaxNumberOfBytes};
-    oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowReading = True);
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowReading = True);
     sbAvailableBytes = b"";
     nStartTime = time.time();
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
@@ -674,7 +689,7 @@ class cTCPIPConnection(cWithCallbacks):
       "nDuration": 0,
       "uNumberOfBytesWritten": 0,
     };
-    oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True);
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True);
     nStartTime = time.time();
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
     uTotalNumberOfBytesWritten = 0;
@@ -699,7 +714,7 @@ class cTCPIPConnection(cWithCallbacks):
           oSelf.__fHandleDisconnect();
         else:
           raise;
-        oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True, bMustThrowException = True);
+        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True, bMustThrowException = True);
       fShowDebugOutput(oSelf, "%d bytes written." % uNumberOfBytesWrittenInSendCall);
       oSelf.fFireCallbacks("bytes written", sbBytes[:uNumberOfBytesWrittenInSendCall]);
       sbBytes = sbBytes[uNumberOfBytesWrittenInSendCall:];
@@ -758,7 +773,7 @@ class cTCPIPConnection(cWithCallbacks):
         oSelf.__fHandleDisconnect();
       else:
         raise;
-      oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable("shutting down for %s" % sShutdownFor, {}, bMustThrowException = True);
+      oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable("shutting down for %s" % sShutdownFor, {}, bMustThrowException = True);
     if bForReading:
       oSelf.fFireCallbacks("shutdown for reading");
     if bForWriting:
@@ -778,11 +793,14 @@ class cTCPIPConnection(cWithCallbacks):
       except cTCPIPConnectionDisconnectedException:
         # A debug message from __fShutdown will have already explained what happened.
         pass;
-    oSelf.__fDisconnect();
+    if oSelf.bConnected:
+      oSelf.__fDisconnect();
   
   @ShowDebugOutput
   def __fDisconnect(oSelf):
-    if not oSelf.bConnected: return;
+    if not oSelf.bConnected:
+      fShowDebugOutput(oSelf, "Already disconnected.");
+      return;
     if oSelf.__oSecurePythonSocket:
       fShowDebugOutput(oSelf, "Disconnecting secure socket...");
       try:
@@ -829,12 +847,12 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__oTerminatedLock.fRelease();
     finally:
       oSelf.__oConnectedPropertyAccessLock.fRelease();
-    fShowDebugOutput("%s terminating." % oSelf);
     # Fire terminated event now if we are not holding it.
     if oSelf.__uTerminatedCallbackPostponeCounter == 0:
+      fShowDebugOutput(oSelf, "Firing terminated callbacks...");
       oSelf.fFireCallbacks("terminated");
     else:
-      # Fire terminated event as soon as they are released.
+      fShowDebugOutput(oSelf, "Postponed terminated callbacks.");
       oSelf.__bTerminatedCallbackPostponed = True;
   
   def fasGetDetails(oSelf):
