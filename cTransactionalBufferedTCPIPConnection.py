@@ -155,6 +155,25 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
           dxDetails = {"sUsageDescription": "In transaction"},
         );
       fShowDebugOutput(oSelf, "Transaction lock acquired.");
+      # A transaction requires communication from both sides: if the connection
+      # is shut down or dicsonnected, we cannot start a transaction.
+      try:
+        oSelf.fThrowExceptionIfShutdownOrDisconnected();
+      except cTCPIPConnectionShutdownException:
+        # If we are shut down, we should disconnect, end the transaction, and re-raise the exception.
+        fShowDebugOutput(oSelf, "Connection is shut down; disconnecting");
+        try:
+          oSelf.fDisconnect();
+        finally:
+          fShowDebugOutput(oSelf, "Releasing transaction lock because connection is disconnected.");
+          oSelf.__oTransactionLock.fbRelease();
+        raise;
+      except cTCPIPConnectionDisconnectedException:
+        # If we are disconnected we should end the transaction, and re-raise the exception.
+        fShowDebugOutput(oSelf, "Releasing transaction lock because connection is disconnected.");
+        oSelf.__oTransactionLock.fbRelease();
+        raise;
+      fShowDebugOutput(oSelf, "Transaction started.");
       oSelf.__n0TransactionEndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
