@@ -220,17 +220,19 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @ShowDebugOutput
   def fEndTransaction(oSelf):
-    if oSelf.__bStopping:
-      super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
-    oSelf.__oPropertiesLock.fAcquire();
     try:
-      oSelf.__oTransactionLock.fRelease();
-      oSelf.__n0TransactionEndTime = None;
+      if oSelf.__bStopping:
+        super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
+      oSelf.__oPropertiesLock.fAcquire();
+      try:
+        oSelf.__oTransactionLock.fRelease();
         fShowDebugOutput(oSelf, "Ended transaction");
+        oSelf.__n0TransactionEndTime = None;
+      finally:
+        oSelf.__oPropertiesLock.fRelease();
+      oSelf.fFireCallbacks("transaction ended");
     finally:
-      oSelf.__oPropertiesLock.fRelease();
-    oSelf.fFireCallbacks("transaction ended");
-    oSelf.fFireTerminatedCallbackIfPostponed();
+      oSelf.fFireTerminatedCallbackIfPostponed();
   
   def __fStartWaitingUntilSomeState(oSelf, sWaitingUntilState):
     oSelf.__oPropertiesLock.fAcquire();
