@@ -319,19 +319,28 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   @ShowDebugOutput
   def fStop(oSelf):
     oSelf.__bStopping = True;
-    # If we are no longer connected or if we can start a transaction, we can stop immediately:
-    bTransactionStarted = oSelf.bConnected and oSelf.__oTransactionLock.fbAcquire(nTimeoutInSeconds = 0);
-    if bTransactionStarted:
-      oSelf.__n0TransactionEndTime = None;
-      fShowDebugOutput("Started transaction to stop connection");
-    if not oSelf.bConnected or bTransactionStarted:
-      try:
-        super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
-      finally:
-        if bTransactionStarted:
-          oSelf.__oTransactionLock.fRelease(), \
-              "Cannot unlock transaction lock (%s)!?" % oSelf.__oTransactionLock;
-          fShowDebugOutput("Ended transaction to stop connection");
+    if not oSelf.bConnected:
+      fShowDebugOutput(oSelf, "Stopped a disconnected connection.");
+      super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
+      return;
+    oSelf.__oPropertiesLock.fAcquire();
+    try:
+      bInTransaction = oSelf.__oTransactionLock.bLocked
+      bWaitingBeforeStartingATransaction = not bInTransaction and oSelf.__oWaitingUntilSomeStateLock.bLocked;
+      # If we are waiting to start a connection, we will disconnect to stop.
+      if bWaitingBeforeStartingATransaction:
+        fShowDebugOutput(oSelf, "Stopping a connection by disconnecting while waiting until some state before starting a transaction.");
+        super(cTransactionalBufferedTCPIPConnection, oSelf).fDisconnect();
+      elif not bInTransaction:
+        fShowDebugOutput(oSelf, "Stopped an idle connection.");
+        assert oSelf.__oTransactionLock.fbAcquire(), \
+            "Cannot lock transaction lock (%s)!?" % oSelf.__oTransactionLock;
+        try:
+          super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
+        finally:
+          oSelf.__oTransactionLock.fRelease();
+    finally:
+      oSelf.__oPropertiesLock.fRelease();
   
   @ShowDebugOutput
   def fWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
