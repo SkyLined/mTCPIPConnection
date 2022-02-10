@@ -98,6 +98,12 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
           # We could not bind to at least one address (or port): close sockets and return None.
           for oPythonSocket in aoPythonSockets:
             oPythonSocket.close();
+          if fbExceptionMeansPortNotPermitted(oException):
+            raise cTCPIPPortNotPermittedException(
+              "Cannot bind server socket to port because it is not permitted on this system",
+              o0Connection = None,
+              dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
+            );
           if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
             break;
           raise;
