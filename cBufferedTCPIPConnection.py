@@ -5,7 +5,8 @@ try: # mDebugOutput use is Optional
 except ModuleNotFoundError as oException:
   if oException.args[0] != "No module named 'mDebugOutput'":
     raise;
-  ShowDebugOutput = fShowDebugOutput = lambda x: x; # NOP
+  ShowDebugOutput = lambda fx: fx; # NOP
+  fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
 from mNotProvided import *;
 
@@ -135,7 +136,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
       sbBytesRead = super(cBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes();
       oSelf.__sbReadBuffer += sbBytesRead;
       oSelf.fFireCallbacks("bytes read", {"sbBytes": sbBytesRead});
-    fShowDebugOutput("Read bytes to make sure there are at least %d bytes resulted in a %d byte buffer." % \
+    fShowDebugOutput(oSelf, "Read bytes to make sure there are at least %d bytes resulted in a %d byte buffer." % \
         (uMinNumberOfBytes, len(oSelf.__sbReadBuffer)));
   
   @ShowDebugOutput

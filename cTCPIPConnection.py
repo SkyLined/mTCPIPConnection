@@ -5,7 +5,8 @@ try: # mDebugOutput use is Optional
 except ModuleNotFoundError as oException:
   if oException.args[0] != "No module named 'mDebugOutput'":
     raise;
-  ShowDebugOutput = fShowDebugOutput = lambda x: x; # NOP
+  ShowDebugOutput = lambda fx: fx; # NOP
+  fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
 try: # m0SSL support is optional
   import mSSL as m0SSL;
@@ -300,14 +301,14 @@ class cTCPIPConnection(cWithCallbacks):
         n0zTimeoutInSeconds = n0zTimeoutInSeconds,
       );
     except Exception as oException:
-      fShowDebugOutput("Exception while wrapping socket: %s(%s)" % (oException.__class__.__name__, oException));
       dxDetails = {"oSelf": oSelf, "oSSLContext": oSSLContext, "oException": oException};
+      fShowDebugOutput(oSelf, "Exception while wrapping socket: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketShutdown(oException):
         oSelf.__fCheckIfSocketAllowsReading(sWhile);
         oSelf.__fCheckIfSocketAllowsWriting(sWhile);
         oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bMustThrowException = True);
       elif fbExceptionMeansSocketDisconnected(oException):
-        fShowDebugOutput("Connection disconnected while %s." % sWhile);
+        fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
         oSelf.__fHandleDisconnect();
         oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bMustThrowException = True);
       elif isinstance(oException, m0SSL.mExceptions.cSSLException):
@@ -383,29 +384,29 @@ class cTCPIPConnection(cWithCallbacks):
       # will not interfere with ssl; hence we call that:
       oSelf.__oPythonSocket.recv(0);
     except Exception as oException:
-      fShowDebugOutput("Exception during `recv()`: %s(%s)" % (oException.__class__.__name__, oException));
+      fShowDebugOutput(oSelf, "Exception during `recv()`: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketTimeout(oException):
-        fShowDebugOutput("The socket still allows reading.");
+        fShowDebugOutput(oSelf, "The socket still allows reading.");
       elif fbExceptionMeansSocketShutdown(oException):
-        fShowDebugOutput("The socket has been shut down for reading.");
+        fShowDebugOutput(oSelf, "The socket has been shut down for reading.");
         oSelf.__fHandleShutdownForReading(sWhile);
       elif fbExceptionMeansSocketDisconnected(oException):
-        fShowDebugOutput("The socket has been disconnected.");
+        fShowDebugOutput(oSelf, "The socket has been disconnected.");
         oSelf.__fHandleDisconnect();
       else:
         raise;
     else:
-      fShowDebugOutput("The socket should still allows reading.");
+      fShowDebugOutput(oSelf, "The socket should still allows reading.");
   
   def __fHandleShutdownForReading(oSelf, sWhile):
     oSelf.__bShouldAllowReading = False;
     if oSelf.__bShouldAllowWriting: oSelf.__fCheckIfSocketAllowsWriting(sWhile);
     if not oSelf.bConnected:
-      fShowDebugOutput("Connection disconnected while %s." % sWhile);
+      fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
     elif not oSelf.__bShouldAllowWriting:
-      fShowDebugOutput("Connection shutdown while %s." % sWhile);
+      fShowDebugOutput(oSelf, "Connection shutdown while %s." % sWhile);
     else:
-      fShowDebugOutput("Connection shutdown for reading while %s." % sWhile);
+      fShowDebugOutput(oSelf, "Connection shutdown for reading while %s." % sWhile);
   
   @ShowDebugOutput
   def __fCheckIfSocketAllowsWriting(oSelf, sWhile):
@@ -424,24 +425,24 @@ class cTCPIPConnection(cWithCallbacks):
       # inside the try...except loop:
       oSelf.__oPythonSocket.settimeout(0);
     except Exception as oException:
-      fShowDebugOutput("Exception during `settimeout()`: %s(%s)" % (oException.__class__.__name__, oException));
+      fShowDebugOutput(oSelf, "Exception during `settimeout()`: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketDisconnected(oException):
-        fShowDebugOutput("The socket has been disconnected.");
+        fShowDebugOutput(oSelf, "The socket has been disconnected.");
         oSelf.__fHandleDisconnect();
       else:
         raise;
     else:
-      fShowDebugOutput("The socket should still allows writing.");
+      fShowDebugOutput(oSelf, "The socket should still allows writing.");
   
   def __fHandleShutdownForWriting(oSelf, sWhile):
     oSelf.__bShouldAllowWriting = False;
     if oSelf.__bShouldAllowReading: oSelf.__fCheckIfSocketAllowsReading(sWhile);
     if not oSelf.bConnected:
-      fShowDebugOutput("Connection disconnected while %s." % sWhile);
+      fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
     if not oSelf.__bShouldAllowReading:
-      fShowDebugOutput("Connection shutdown while %s." % sWhile);
+      fShowDebugOutput(oSelf, "Connection shutdown while %s." % sWhile);
     else:
-      fShowDebugOutput("Connection shutdown for writing while %s." % sWhile);
+      fShowDebugOutput(oSelf, "Connection shutdown for writing while %s." % sWhile);
   
   @property
   def bConnected(oSelf):
@@ -474,7 +475,7 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__fHandleDisconnect();
       bReadable = False;
     else:
-      fShowDebugOutput("Checking if there is a signal on the socket...");
+      fShowDebugOutput(oSelf, "Checking if there is a signal on the socket...");
       (aiReadableFileNos, xIgnore, aiErrorFileNos) = select.select([iFileNo], [], [iFileNo], n0TimeoutInSeconds);
       bReadable = len(aiErrorFileNos) == 0;
     if not bReadable:
@@ -486,7 +487,7 @@ class cTCPIPConnection(cWithCallbacks):
     # Can throw a shutdown or disconnected exception.
     # Returns true if there are any bytes that can currently to be read.
     if oSelf.__fbSelectForBytesAvailable(0, sWhile):
-      fShowDebugOutput("Data should be available for reading now.");
+      fShowDebugOutput(oSelf, "Data should be available for reading now.");
       return True;
     return False;
   
@@ -504,7 +505,7 @@ class cTCPIPConnection(cWithCallbacks):
     # Reading from the socket did not cause an exception, so the socket isn't
     # shutdown or closed yet.
     if oSelf.__fbSelectForBytesAvailable(n0TimeoutInSeconds, sWhile):
-      fShowDebugOutput("Data should be available for reading now.");
+      fShowDebugOutput(oSelf, "Data should be available for reading now.");
       return True;
     raise cTCPIPDataTimeoutException(
       "Timeout while %s" % sWhile,
@@ -524,11 +525,11 @@ class cTCPIPConnection(cWithCallbacks):
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
     while n0EndTime is None or time.time() < n0EndTime:
       if not oSelf.__fbSelectForBytesAvailable(0, sWhile):
-        fShowDebugOutput("No more data available for reading now.");
+        fShowDebugOutput(oSelf, "No more data available for reading now.");
         break;
       # Readable socket and no errors while reading 0 bytes means bytes are
       # available for reading.
-      fShowDebugOutput("Data should be available for reading now.");
+      fShowDebugOutput(oSelf, "Data should be available for reading now.");
       uReadMaxNumberOfBytes = ( # Try to read the maximum number of bytes or a "chunk" if there is no max.
         u0MaxNumberOfBytes - len(sbAvailableBytes) if u0MaxNumberOfBytes is not None \
         else oSelf.uReadChunkSize
@@ -538,18 +539,18 @@ class cTCPIPConnection(cWithCallbacks):
         sbBytesRead = oSelf.__oPythonSocket.recv(uReadMaxNumberOfBytes);
       except Exception as oException:
         dxDetails["nDuration"] = time.time() - nStartTime;
-        fShowDebugOutput("Exception during `recv()`: %s(%s)" % (oException.__class__.__name__, oException));
+        fShowDebugOutput(oSelf, "Exception during `recv()`: %s(%s)" % (oException.__class__.__name__, oException));
         if fbExceptionMeansSocketHasNoDataAvailable(oException):
           pass;
         elif fbExceptionMeansSocketShutdown(oException):
           oSelf.__fHandleShutdownForReading(sWhile);
         elif fbExceptionMeansSocketDisconnected(oException):
-          fShowDebugOutput("Connection disconnected while %s." % sWhile);
+          fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
           oSelf.__fHandleDisconnect();
         else:
           raise;
         break;
-      fShowDebugOutput("%d bytes read." % len(sbBytesRead));
+      fShowDebugOutput(oSelf, "%d bytes read." % len(sbBytesRead));
       uShowDataBytesPerLine = 32;
       for uOffset in range(0, len(sbBytesRead), uShowDataBytesPerLine):
         sbData = sbBytesRead[uOffset:uOffset + uShowDataBytesPerLine];
@@ -562,7 +563,7 @@ class cTCPIPConnection(cWithCallbacks):
         # select.select reported a signal on the socket. If it did not signal
         # there was data available it means the connection was shutdown or
         # disconnected. We do not know which, so we assume a shutdown.
-        fShowDebugOutput("No bytes read indicates the socket was shutdown and/or disconnected.");
+        fShowDebugOutput(oSelf, "No bytes read indicates the socket was shutdown and/or disconnected.");
         oSelf.__fHandleShutdownForReading(sWhile);
         break;
       oSelf.fFireCallbacks("bytes read", sbBytesRead);
@@ -595,7 +596,7 @@ class cTCPIPConnection(cWithCallbacks):
           # select.select reported a signal on the socket. If it did not signal
           # there was data available it means the connection was shutdown or
           # disconnected. We do not know which, so we assume a shutdown.
-          fShowDebugOutput("No bytes read indicates the socket was shutdown and/or disconnected.");
+          fShowDebugOutput(oSelf, "No bytes read indicates the socket was shutdown and/or disconnected.");
           oSelf.__fHandleShutdownForReading(sWhile);
           break;
         sbBytesRead += sbAvailableBytes;
@@ -632,17 +633,17 @@ class cTCPIPConnection(cWithCallbacks):
         uNumberOfBytesWrittenInSendCall = oSelf.__oPythonSocket.send(sbBytes);
       except Exception as oException:
         dxDetails["nDuration"] = time.time() - nStartTime;
-        fShowDebugOutput("Exception during `send()`: %s(%s)" % (oException.__class__.__name__, oException));
+        fShowDebugOutput(oSelf, "Exception during `send()`: %s(%s)" % (oException.__class__.__name__, oException));
         if fbExceptionMeansSocketShutdown(oException):
-          fShowDebugOutput("Connection shutdown while %s." % sWhile);
+          fShowDebugOutput(oSelf, "Connection shutdown while %s." % sWhile);
           oSelf.__fHandleShutdownForWriting(sWhile);
         elif fbExceptionMeansSocketDisconnected(oException):
-          fShowDebugOutput("Connection disconnected while %s." % sWhile);
+          fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
           oSelf.__fHandleDisconnect();
         else:
           raise;
         oSelf.fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, dxDetails, bShouldAllowWriting = True, bMustThrowException = True);
-      fShowDebugOutput("%d bytes written." % uNumberOfBytesWrittenInSendCall);
+      fShowDebugOutput(oSelf, "%d bytes written." % uNumberOfBytesWrittenInSendCall);
       oSelf.fFireCallbacks("bytes written", sbBytes[:uNumberOfBytesWrittenInSendCall]);
       sbBytes = sbBytes[uNumberOfBytesWrittenInSendCall:];
       uTotalNumberOfBytesWritten += uNumberOfBytesWrittenInSendCall;
@@ -683,9 +684,9 @@ class cTCPIPConnection(cWithCallbacks):
       "writing" if bForWriting else None,
     ] if s]);
     if xFlags is None:
-      fShowDebugOutput("Already shut down for %s..." %  sShutdownFor);
+      fShowDebugOutput(oSelf, "Already shut down for %s..." %  sShutdownFor);
       return;
-    fShowDebugOutput("Shutting down for %s..." %  sShutdownFor);
+    fShowDebugOutput(oSelf, "Shutting down for %s..." %  sShutdownFor);
     if bForReading:
       oSelf.__bShouldAllowReading = False;
     if bForWriting:
@@ -694,9 +695,9 @@ class cTCPIPConnection(cWithCallbacks):
     try:
       oSelf.__oPythonSocket.shutdown(xFlags);
     except Exception as oException:
-      fShowDebugOutput("Exception during `shutdown()`: %s(%s)" % (oException.__class__.__name__, oException));
+      fShowDebugOutput(oSelf, "Exception during `shutdown()`: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketDisconnected(oException):
-        fShowDebugOutput("Connection disconnected while shutting down for %s." % sShutdownFor);
+        fShowDebugOutput(oSelf, "Connection disconnected while shutting down for %s." % sShutdownFor);
         oSelf.__fHandleDisconnect();
       else:
         raise;
@@ -711,7 +712,7 @@ class cTCPIPConnection(cWithCallbacks):
   def fDisconnect(oSelf, bShutdownFirst = True):
     if not oSelf.bConnected: return;
     if bShutdownFirst:
-      fShowDebugOutput("Shutting socket down...");
+      fShowDebugOutput(oSelf, "Shutting socket down...");
       try:
         oSelf.__fShutdown(
           bForReading = oSelf.__bShouldAllowReading,
@@ -726,26 +727,26 @@ class cTCPIPConnection(cWithCallbacks):
   def __fDisconnect(oSelf):
     if not oSelf.bConnected: return;
     if oSelf.__oSecurePythonSocket:
-      fShowDebugOutput("Disconnecting secure socket...");
+      fShowDebugOutput(oSelf, "Disconnecting secure socket...");
       try:
         oSelf.__oSecurePythonSocket.close();
       except Exception as oException:
-        fShowDebugOutput("Exception during `close()` on secure socket: %s(%s)" % \
+        fShowDebugOutput(oSelf, "Exception during `close()` on secure socket: %s(%s)" % \
             (oException.__class__.__name__, oException));
         if not fbExceptionMeansSocketDisconnected(oException):
           raise;
-      fShowDebugOutput("Disconnecting non-secure socket...");
+      fShowDebugOutput(oSelf, "Disconnecting non-secure socket...");
     else:
-      fShowDebugOutput("Disconnecting socket...");
+      fShowDebugOutput(oSelf, "Disconnecting socket...");
     try:
       oSelf.__oNonSecurePythonSocket.close();
     except Exception as oException:
-      fShowDebugOutput("Exception during `close()`%s: %s(%s)" % \
+      fShowDebugOutput(oSelf, "Exception during `close()`%s: %s(%s)" % \
           (" on non-secure socket" if oSelf.__oSecurePythonSocket else "", oException.__class__.__name__, oException));
       if not fbExceptionMeansSocketDisconnected(oException):
         raise;
     oSelf.__fHandleDisconnect();
-    fShowDebugOutput("Disconnected.");
+    fShowDebugOutput(oSelf, "Disconnected.");
   
   def __fHandleDisconnect(oSelf):
     oSelf.__oConnectedPropertyAccessLock.fAcquire();
@@ -755,7 +756,7 @@ class cTCPIPConnection(cWithCallbacks):
       try:
         oSelf.__oNonSecurePythonSocket.close();
       except Exception as oException:
-        fShowDebugOutput("Exception during `close()`%s: %s(%s)" % \
+        fShowDebugOutput(oSelf, "Exception during `close()`%s: %s(%s)" % \
             (" on non-secure socket" if oSelf.__oSecurePythonSocket else "", oException.__class__.__name__, oException));
         if not fbExceptionMeansSocketDisconnected(oException):
           raise;
@@ -763,7 +764,7 @@ class cTCPIPConnection(cWithCallbacks):
         try:
           oSelf.__oSecurePythonSocket.close();
         except Exception as oException:
-          fShowDebugOutput("Exception during `close()` on secure socket: %s(%s)" % (oException.__class__.__name__, oException));
+          fShowDebugOutput(oSelf, "Exception during `close()` on secure socket: %s(%s)" % (oException.__class__.__name__, oException));
           if not fbExceptionMeansSocketDisconnected(oException):
             raise;
       oSelf.__bShouldAllowReading = False;

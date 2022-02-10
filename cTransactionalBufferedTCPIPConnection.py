@@ -5,7 +5,8 @@ try: # mDebugOutput use is Optional
 except ModuleNotFoundError as oException:
   if oException.args[0] != "No module named 'mDebugOutput'":
     raise;
-  ShowDebugOutput = fShowDebugOutput = lambda x: x; # NOP
+  ShowDebugOutput = lambda fx: fx; # NOP
+  fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
 from mMultiThreading import cLock;
 from mNotProvided import *;
@@ -138,19 +139,19 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         # Somebody is waiting for bytes to be available for reading or to be
         # able to start a transaction on this connection so we cannot start
         # a transaction at this time.
-        fShowDebugOutput("Waiting until %s; cannot start transaction" % oSelf.__s0WaitingUntilState);
         raise cTransactionalConnectionCannotBeUsedConcurrently(
+        fShowDebugOutput(oSelf, "Waiting until %s; cannot start transaction" % oSelf.__s0WaitingUntilState);
           "The connection is already in use.",
           {"oConnection": oSelf, "sUsageDescription": "Waiting until %s" % oSelf.__s0WaitingUntilState},
         );
       if not oSelf.__oTransactionLock.fbAcquire():
         # Somebody has already started a transaction on this connection.
-        fShowDebugOutput("Transaction already started");
         raise cTransactionalConnectionCannotBeUsedConcurrently(
+        fShowDebugOutput(oSelf, "Transaction already started");
           "The connection is already in use.",
           {"oConnection": oSelf, "sUsageDescription": "In transaction"},
         );
-      fShowDebugOutput("Started transaction");
+      fShowDebugOutput(oSelf, "Transaction lock acquired.");
       oSelf.__n0TransactionEndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
@@ -202,8 +203,8 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.__oPropertiesLock.fAcquire();
     try:
       oSelf.__oTransactionLock.fRelease();
-      fShowDebugOutput("Ended transaction");
       oSelf.__n0TransactionEndTime = None;
+        fShowDebugOutput(oSelf, "Ended transaction");
     finally:
       oSelf.__oPropertiesLock.fRelease();
     oSelf.fFireCallbacks("transaction ended");
@@ -213,15 +214,15 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.__oPropertiesLock.fAcquire();
     try:
       if not oSelf.__oTransactionLock.fbAcquire():
-        fShowDebugOutput("Transaction started; cannot wait until %s" % sWaitingUntilState);
         raise cTransactionalConnectionCannotBeUsedConcurrently(
+        fShowDebugOutput(oSelf, "Transaction started; cannot wait until %s" % sWaitingUntilState);
           "The connection is already in use.",
           {"oConnection": oSelf, "sUsageDescription": "In transaction"},
         );
-      fShowDebugOutput("Started transaction to start waiting until %s" % sWaitingUntilState);
+      fShowDebugOutput(oSelf, "Started transaction to start waiting until %s" % sWaitingUntilState);
       try:
         if not oSelf.__oWaitingUntilSomeStateLock.fbAcquire():
-          fShowDebugOutput("Already waiting until %s; cannot wait until %s" % (oSelf.__s0WaitingUntilState, sWaitingUntilState));
+          fShowDebugOutput(oSelf, "Already waiting until %s; cannot wait until %s" % (oSelf.__s0WaitingUntilState, sWaitingUntilState));
           # Somebody else is waiting for bytes to be available for reading to start a transaction on this connection.
           raise cTransactionalConnectionCannotBeUsedConcurrently(
             "The connection is already in use.",
@@ -230,8 +231,8 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       finally:
         # We are not starting a transaction yet, so do not keep this lock.
         oSelf.__oTransactionLock.fRelease();
-        fShowDebugOutput("Ended transaction to start waiting until %s" % sWaitingUntilState);
-      fShowDebugOutput("Waiting until %s..." % sWaitingUntilState);
+        fShowDebugOutput(oSelf, "Ended transaction to start waiting until %s" % sWaitingUntilState);
+      fShowDebugOutput(oSelf, "Waiting until %s..." % sWaitingUntilState);
       oSelf.__s0WaitingUntilState = sWaitingUntilState;
     finally:
       oSelf.__oPropertiesLock.fRelease();
@@ -243,11 +244,11 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
           "Code was %s but is now ending waiting until %s!?" % \
           ("waiting until " % oSelf.__s0WaitingUntilState if oSelf.__s0WaitingUntilState else "not waiting for anything", sWaitingUntilState);
       # Start a transaction before ending the wait, to avoid a race condition.
-      fShowDebugOutput("Done waiting until %s%s..." % (sWaitingUntilState, "; starting transaction" if bStartTransaction else ""));
+      fShowDebugOutput(oSelf, "Done waiting until %s%s..." % (sWaitingUntilState, "; starting transaction" if bStartTransaction else ""));
       if bStartTransaction:
         assert oSelf.__oTransactionLock.fbAcquire(), \
             "Cannot lock transaction lock (%s)!?" % oSelf.__oTransactionLock;
-        fShowDebugOutput("Started transaction after waiting until %s" % sWaitingUntilState);
+        fShowDebugOutput(oSelf, "Started transaction after waiting until %s" % sWaitingUntilState);
         oSelf.__n0TransactionEndTime = time.time() + n0TransactionTimeoutInSeconds if n0TransactionTimeoutInSeconds else None;
       oSelf.__oWaitingUntilSomeStateLock.fRelease();
       oSelf.__s0WaitingUntilState = None;
