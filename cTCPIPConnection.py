@@ -405,7 +405,6 @@ class cTCPIPConnection(cWithCallbacks):
   def bShouldAllowWriting(oSelf):
     return oSelf.__bShouldAllowWriting;
   
-  @ShowDebugOutput
   def __fCheckIfSocketAllowsReading(oSelf, sWhile):
     assert oSelf.__bShouldAllowReading, \
         "Check if __bShouldAllowReading is True before calling!";
@@ -446,7 +445,6 @@ class cTCPIPConnection(cWithCallbacks):
     else:
       fShowDebugOutput(oSelf, "Connection shutdown for reading while %s." % sWhile);
   
-  @ShowDebugOutput
   def __fCheckIfSocketAllowsWriting(oSelf, sWhile):
     assert oSelf.__bShouldAllowWriting, \
         "Check if __bShouldAllowWriting is True before calling!";
