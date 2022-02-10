@@ -8,7 +8,7 @@ except ModuleNotFoundError as oException:
   ShowDebugOutput = lambda fx: fx; # NOP
   fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
-try: # m0SSL support is optional
+try: # mSSL support is optional
   import mSSL as m0SSL;
 except ModuleNotFoundError as oException:
   if oException.args[0] != "No module named 'mSSL'":
