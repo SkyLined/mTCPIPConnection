@@ -16,7 +16,11 @@ except ModuleNotFoundError as oException:
   m0SSL = None;
 
 from mMultiThreading import cLock, cWithCallbacks;
-from mNotProvided import *;
+from mNotProvided import \
+    fAssertType, \
+    fbIsProvided, \
+    fxGetFirstProvidedValue, \
+    zNotProvided;
 
 from .fbExceptionMeansSocketConnectionRefused import fbExceptionMeansSocketConnectionRefused;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;

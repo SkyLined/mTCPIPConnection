@@ -8,7 +8,9 @@ except ModuleNotFoundError as oException:
   ShowDebugOutput = lambda fx: fx; # NOP
   fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
-from mNotProvided import *;
+from mNotProvided import \
+    fAssertType, \
+    zNotProvided;
 
 from .cTCPIPConnection import cTCPIPConnection;
 from .mExceptions import *;

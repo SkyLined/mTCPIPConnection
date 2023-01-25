@@ -1,4 +1,8 @@
-from mTCPIPConnection import *;
+from mTCPIPConnection import \
+    cBufferedTCPIPConnection, \
+    cTCPIPConnection, \
+    cTransactionalBufferedTCPIPConnection, \
+    mExceptions;
 
 from cTestServer import *;
 

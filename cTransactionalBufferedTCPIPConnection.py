@@ -9,7 +9,9 @@ except ModuleNotFoundError as oException:
   fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
 from mMultiThreading import cLock;
-from mNotProvided import *;
+from mNotProvided import \
+  fAssertType, \
+  zNotProvided;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
 from .mExceptions import *;
