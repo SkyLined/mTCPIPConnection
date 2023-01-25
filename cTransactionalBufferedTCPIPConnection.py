@@ -101,7 +101,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     );
     return [
       oConnection
-      for oConnection in aoConnectons
+      for oConnection in aoConnections
       if oConnection.__oTransactionLock in aoUnlockedTransactionLocks
     ];
   
