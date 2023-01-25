@@ -77,13 +77,20 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
       try:
         atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
       except Exception as oException:
-        if fbExceptionMeansSocketHostnameCannotBeResolved(oException):
-          raise cTCPIPDNSUnknownHostnameException("Cannot resolve hostname", dxDetails);
-        elif fbExceptionMeansSocketAddressIsInvalid(oException):
+        if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException(
-            "Invalid hostname",
-            o0Connection = None,
-            dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
+            "Cannot bind to invalid address %s." % (
+              repr("%s:%d" % (sLowerHostname, uPortNumber)),
+            ),
+            sHostnameOrIPAddress = sLowerHostname,
+            uPortNumber = uPortNumber,
+          );
+        elif fbExceptionMeansSocketHostnameCannotBeResolved(oException):
+          raise cTCPIPDNSUnknownHostnameException(
+            "Cannot bind to hostname %s because it cannot be resolved." % (
+              repr(sLowerHostname),
+            ),
+            sHostname = sLowerHostname,
           );
         else:
           raise;
@@ -93,7 +100,13 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
         uIndex += 1;
         oPythonSocket = socket.socket(iFamily, iType, iProto);
         oPythonSocket.settimeout(None);
-        fShowDebugOutput("Trying to bind to %s:%d (%d/%d)" % (txAddress[0], txAddress[1], uIndex, len(atxAddressInfo)));
+        if iFamily == socket.AF_INET:
+          (sIPAddress, uPortNumber) = txAddress; # IPv4
+        elif iFamily == socket.AF_INET6:
+          (sIPAddress, uPortNumber, uFlowInfo, uScopeId) = txAddress; # IPv6
+        else:
+          continue; # Not a protocol we suport.
+        fShowDebugOutput("Trying to bind to %s:%d (%d/%d)" % (sIPAddress, uPortNumber, uIndex, len(atxAddressInfo)));
         try:
           oPythonSocket.bind(txAddress);
         except Exception as oException:
@@ -102,15 +115,19 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
             oPythonSocket.close();
           if fbExceptionMeansPortNotPermitted(oException):
             raise cTCPIPPortNotPermittedException(
-              "Cannot bind server socket to port because it is not permitted on this system",
-              o0Connection = None,
-              dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
+              "Cannot bind to address %s because the port is not permitted." % (
+                repr("%s:%d" % (sIPAddress, uPortNumber)),
+              ),
+              sHostnameOrIPAddress = sIPAddress,
+              uPortNumber = uPortNumber,
             );
           if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
             raise cTCPIPPortAlreadyInUseAsAcceptorException(
-              "Cannot bind server socket to port because it is already in use on this system",
-              o0Connection = None,
-              dxDetails = {"sbHostname": oSelf.__sbHostname, "uPortNumber": uPortNumber},
+              "Cannot bind to address %s because the port is already in use." % (
+                repr("%s:%d" % (sIPAddress, uPortNumber)),
+              ),
+              sHostnameOrIPAddress = sIPAddress,
+              uPortNumber = uPortNumber,
             );
           raise;
         aoPythonSockets.append(oPythonSocket);
@@ -147,13 +164,10 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
             break;
         else:
           raise cTCPIPNoAvailablePortsException(
-            "Cannot bind server socket because all possible default ports are already in use on this system",
-            o0Connection = None,
-            dxDetails = {
-              "sbHostname": oSelf.__sbHostname,
-              "u0DefaultPortNumber": u0DefaultPortNumber,
-              "o0DefaultAdditionalPortNumberRange": oSelf.o0DefaultAdditionalPortNumberRange,
-            },
+            "Cannot bind to hostname or ip address %s because no port was available." % (
+              repr(sLowerHostname),
+            ),
+            sHostnameOrIPAddress = sLowerHostname,
           );
     for oPythonSocket in oSelf.__aoPythonSockets:
       oPythonSocket.listen(1);

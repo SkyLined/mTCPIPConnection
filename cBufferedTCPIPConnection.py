@@ -132,12 +132,12 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
         n0TimeoutInSeconds = n0EndTime - time.time();
         if n0TimeoutInSeconds <= 0:
           raise cTCPIPDataTimeoutException(
-            "Timeout while %s" % sWhile,
-            o0Connection = oSelf,
-            dxDetails = {
-              "uNumberOfBytes": len(oSelf.__sbReadBuffer),
-              "uMinNumberOfBytes": uMinNumberOfBytes,
-            },
+            "Timeout on connection %s while %s after %s seconds." % (
+              oSelf.fsGetEndPointsAndDirection(),
+              sWhile,
+              n0TimeoutInSeconds,
+            ),
+            oConnection = oSelf,
           );
       else:
         n0TimeoutInSeconds = None;

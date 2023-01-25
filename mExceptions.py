@@ -1,44 +1,68 @@
 
 class cTCPIPException(Exception):
-  def __init__(oSelf, sMessage, *, o0Connection = None, dxDetails = None):
-    assert isinstance(dxDetails, dict), \
-        "dxDetails must be a dict, not %s" % repr(dxDetails);
+  def __init__(oSelf, sMessage):
+    assert isinstance(sMessage, str), \
+        "sMessage must be a str, not %s" % repr(sMessage);
     oSelf.sMessage = sMessage;
-    oSelf.o0Connection = o0Connection;
-    oSelf.dxDetails = dxDetails;
-    Exception.__init__(oSelf, sMessage, o0Connection, dxDetails);
+    Exception.__init__(oSelf, sMessage);
   
-  def fasDetails(oSelf):
-    return (
-      (["Remote: %s" % str(oSelf.o0Connection.sbRemoteAddress, "ascii", "strict")] if oSelf.o0Connection else [])
-      + ["%s: %s" % (str(sName), repr(xValue)) for (sName, xValue) in oSelf.dxDetails.items()]
-    );
   def __str__(oSelf):
     return "%s (%s)" % (oSelf.sMessage, ", ".join(oSelf.fasDetails()));
   def __repr__(oSelf):
     return "<%s.%s %s>" % (oSelf.__class__.__module__, oSelf.__class__.__name__, oSelf);
 
-class cTCPIPPortNotPermittedException(cTCPIPException):
+class cTCPIPExceptionWithHostname(cTCPIPException):
+  def __init__(oSelf, sMessage, sHostname, **dxArguments):
+    assert isinstance(sHostname, str), \
+        "sHostname must be a str, not %s" % repr(sHostname);
+    oSelf.sHostname = sHostname;
+    cTCPIPException.__init__(oSelf, sMessage, **dxArguments);
+  def fasDetails(oSelf):
+    return ["Hostname or IP address: %s" % repr(oSelf.sHostname)];
+class cTCPIPDNSUnknownHostnameException(cTCPIPExceptionWithHostname):
   pass;
-class cTCPIPPortAlreadyInUseAsAcceptorException(cTCPIPException):
+class cTCPIPNoAvailablePortsException(cTCPIPExceptionWithHostname):
   pass;
-class cTCPIPNoAvailablePortsException(cTCPIPException):
+
+class cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber(cTCPIPException):
+  def __init__(oSelf, sMessage, sHostnameOrIPAddress, uPortNumber, **dxArguments):
+    assert isinstance(sHostnameOrIPAddress, str), \
+        "sHostnameOrIPAddress must be a str, not %s" % repr(sHostnameOrIPAddress);
+    assert isinstance(uPortNumber, int), \
+        "uPortNumber must be an int, not %s" % repr(uPortNumber);
+    oSelf.sHostnameOrIPAddress = sHostnameOrIPAddress;
+    oSelf.uPortNumber = uPortNumber;
+    cTCPIPException.__init__(oSelf, sMessage, **dxArguments);
+  def fasDetails(oSelf):
+    return ["Hostname or IP address and port: %s" % repr("%s:%d" % (oSelf.sHostnameOrIPAddress, oSelf.uPortNumber))];
+class cTCPIPPortNotPermittedException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
-class cTCPIPConnectionRefusedException(cTCPIPException):
+class cTCPIPPortAlreadyInUseAsAcceptorException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
-class cTCPIPConnectionDisconnectedException(cTCPIPException):
+class cTCPIPConnectionRefusedException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
-class cTCPIPInvalidAddressException(cTCPIPException):
+class cTCPIPInvalidAddressException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
-class cTCPIPConnectTimeoutException(cTCPIPException):
+class cTCPIPConnectTimeoutException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
-class cTCPIPDataTimeoutException(cTCPIPException):
+
+class cTCPIPExceptionWithConnection(cTCPIPException):
+  def __init__(oSelf, sMessage, oConnection, **dxArguments):
+    # JIT import to avoid a loop.
+    from .cTCPIPConnection import cTCPIPConnection;
+    assert isinstance(oConnection, cTCPIPConnection), \
+        "oConnection must be a cTCPIPConnection, not %s" % repr(oConnection);
+    oSelf.oConnection = oConnection;
+    cTCPIPException.__init__(oSelf, sMessage, **dxArguments);
+  def fasDetails(oSelf):
+    return ["Connection: %s" % repr(oSelf.oConnection)];
+class cTCPIPConnectionCannotBeUsedConcurrentlyException(cTCPIPExceptionWithConnection):
   pass;
-class cTCPIPDNSUnknownHostnameException(cTCPIPException):
+class cTCPIPDataTimeoutException(cTCPIPExceptionWithConnection):
   pass;
-class cTCPIPConnectionShutdownException(cTCPIPException):
+class cTCPIPConnectionShutdownException(cTCPIPExceptionWithConnection):
   pass;
-class cTCPIPConnectionCannotBeUsedConcurrentlyException(cTCPIPException):
+class cTCPIPConnectionDisconnectedException(cTCPIPExceptionWithConnection):
   pass;
 
 acExceptions = [
