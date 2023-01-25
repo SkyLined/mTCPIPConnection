@@ -308,26 +308,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     if bStartTransaction:
       oSelf.fFireCallbacks("transaction started", {"n0TransactionTimeoutInSeconds": n0TransactionTimeoutInSeconds});
   
-  def fSecure(oSelf,
-    oSSLContext,
-    n0zTimeoutInSeconds = zNotProvided,
-    bStartTransaction = True,
-    bEndTransaction = True,
-  ):
-    n0TimeoutInSeconds = fx0GetProvidedValueOrNone(n0zTimeoutInSeconds);
-    if bStartTransaction:
-      oSelf.fStartTransaction(n0TimeoutInSeconds);
-    else:
-      oSelf.fRestartTransaction(n0TimeoutInSeconds);
-    try:
-      return super(cTransactionalBufferedTCPIPConnection, oSelf).fSecure(
-        oSSLContext,
-        n0zTimeoutInSeconds = n0zTimeoutInSeconds,
-      );
-    finally:
-      if bEndTransaction:
-        oSelf.fEndTransaction();
-  
   @property
   def bStopping(oSelf):
     return oSelf.__bStopping or super(cTransactionalBufferedTCPIPConnection, oSelf).bStopping;
