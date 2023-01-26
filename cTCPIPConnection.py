@@ -182,6 +182,7 @@ class cTCPIPConnection(cWithCallbacks):
               "Attempt to connect to server address %s timed out." % repr("%s:%d" % (sIPAddress, uPortNumber)),
               sHostnameOrIPAddress = sIPAddress,
               uPortNumber = uPortNumber,
+              nTimeoutInSeconds = n0ConnectTimeoutInSeconds,
             );
           elif fbExceptionMeansSocketConnectionRefused(oException):
             oException = cTCPIPConnectionRefusedException(

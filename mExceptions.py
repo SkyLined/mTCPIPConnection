@@ -44,7 +44,13 @@ class cTCPIPConnectionRefusedException(cTCPIPExceptionWithHostnameOrIPAddressAnd
 class cTCPIPInvalidAddressException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
 class cTCPIPConnectTimeoutException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
-  pass;
+  def __init__(oSelf, sMessage, sHostnameOrIPAddress, uPortNumber, nTimeoutInSeconds, **dxArguments):
+    assert isinstance(nTimeoutInSeconds, (int, float)), \
+        "nTimeoutInSeconds must be an int or float, not %s" % repr(nTimeoutInSeconds);
+    oSelf.nTimeoutInSeconds = nTimeoutInSeconds;
+    cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber.__init__(oSelf, sMessage, sHostnameOrIPAddress, uPortNumber, **dxArguments);
+  def fasDetails(oSelf):
+    return ["Hostname or IP address and port: %s" % repr("%s:%d" % (oSelf.sHostnameOrIPAddress, oSelf.uPortNumber))];
 
 class cTCPIPExceptionWithConnection(cTCPIPException):
   def __init__(oSelf, sMessage, oConnection, **dxArguments):
