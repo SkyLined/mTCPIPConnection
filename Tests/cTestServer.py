@@ -8,6 +8,7 @@ except ModuleNotFoundError as oException:
     raise;
   m0SSL = None;
 
+NORMAL =         0x0F07; # Light grey
 DIM =            0x0F08; # Dark gray
 WARN =           0x0F04; # Red
 class cTestServer(object):
@@ -126,9 +127,11 @@ class cTestServer(object):
           );
         except Exception as oException:
           if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
-            oSelf.oConsole.fOutput(WARN, "* ", oSelf.sName, " test server: could not secure connection: ", oException.__class__.__name__, "(", repr(oException.sMessage), ")");
-            for (sName, xValue) in oException.dxDetails.items():
-              oSelf.oConsole.fOutput(WARN, "  ", oSelf.sName, " test server:    ", repr(sName), " = ", repr(xValue));
+            oSelf.oConsole.fOutput(
+              WARN, "* ",
+              NORMAL, oSelf.sName, " test server: could not secure connection: ",
+                  oException.__class__.__name__, ": ", repr(oException.sMessage), ")"
+            );
             bReadable = False;
             bWritable = False;
           else:
