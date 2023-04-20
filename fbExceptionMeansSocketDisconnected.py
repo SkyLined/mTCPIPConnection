@@ -4,6 +4,7 @@ def fbExceptionMeansSocketDisconnected(oException):
   return (
     isinstance(oException, ConnectionResetError)
     or isinstance(oException, ssl.SSLEOFError)
+    or isinstance(oException, ssl.SSLZeroReturnError)
     or (
       (
         isinstance(oException, OSError) and oException.errno in [
