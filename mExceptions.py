@@ -43,6 +43,8 @@ class cTCPIPConnectionRefusedException(cTCPIPExceptionWithHostnameOrIPAddressAnd
   pass;
 class cTCPIPInvalidAddressException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   pass;
+class cTCPIPUnreachableAddressException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
+  pass;
 class cTCPIPConnectTimeoutException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
   def __init__(oSelf, sMessage, sHostnameOrIPAddress, uPortNumber, nTimeoutInSeconds, **dxArguments):
     assert isinstance(nTimeoutInSeconds, (int, float)), \

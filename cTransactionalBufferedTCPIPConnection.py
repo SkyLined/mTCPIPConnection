@@ -10,11 +10,13 @@ except ModuleNotFoundError as oException:
 
 from mMultiThreading import cLock;
 from mNotProvided import \
-  fAssertType, \
-  zNotProvided;
+  fAssertType;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
-from .mExceptions import *;
+from .mExceptions import \
+    cTCPIPConnectionCannotBeUsedConcurrentlyException, \
+    cTCPIPConnectionDisconnectedException, \
+    cTCPIPConnectionShutdownException;
 
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 

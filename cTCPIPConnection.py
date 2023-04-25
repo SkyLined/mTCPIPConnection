@@ -27,9 +27,20 @@ from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnect
 from .fbExceptionMeansSocketHasNoDataAvailable import fbExceptionMeansSocketHasNoDataAvailable;
 from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
 from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
+from .fbExceptionMeansSocketAddressIsUnreachable import fbExceptionMeansSocketAddressIsUnreachable;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
-from .mExceptions import *;
+from .mExceptions import \
+  acExceptions, \
+  cTCPIPConnectionDisconnectedException, \
+  cTCPIPConnectionRefusedException, \
+  cTCPIPConnectionShutdownException, \
+  cTCPIPConnectTimeoutException, \
+  cTCPIPDataTimeoutException, \
+  cTCPIPDNSUnknownHostnameException, \
+  cTCPIPException, \
+  cTCPIPInvalidAddressException, \
+  cTCPIPUnreachableAddressException;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -154,13 +165,20 @@ class cTCPIPConnection(cWithCallbacks):
           sbzHostname = sbzHostname,
         );
       oPythonSocket.settimeout(n0ConnectTimeoutInSeconds);
-      nStartTime = time.time();
       try:
         oPythonSocket.connect(txAddress);
       except Exception as oException:
         fShowDebugOutput("Exception during `connect()`: %s(%s)" % (oException.__class__.__name__, oException));
         if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException(
+            "Cannot connect to invalid address %s." % (
+              repr("%s:%d" % (sLowerHostnameOrIPAddress, uPortNumber)),
+            ),
+            sHostnameOrIPAddress = sIPAddress,
+            uPortNumber = uPortNumber,
+          );
+        elif fbExceptionMeansSocketAddressIsUnreachable(oException):
+          raise cTCPIPUnreachableAddressException(
             "Cannot connect to invalid address %s." % (
               repr("%s:%d" % (sLowerHostnameOrIPAddress, uPortNumber)),
             ),
@@ -210,7 +228,7 @@ class cTCPIPConnection(cWithCallbacks):
         oConnection.fSecure(
           oSSLContext = o0SSLContext,
           n0zTimeoutInSeconds = n0zSecureTimeoutInSeconds,
-       );
+        );
       return oConnection;
     raise AssertionError("socket.getaddrinfo(...) return an empty list!?");
     

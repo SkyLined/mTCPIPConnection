@@ -15,12 +15,20 @@ from mNotProvided import \
 
 from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansPortNotPermitted import fbExceptionMeansPortNotPermitted;
+from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
 from .fbExceptionMeansSocketAlreadyInUseAsAcceptor import fbExceptionMeansSocketAlreadyInUseAsAcceptor;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
-from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
-from .mExceptions import *;
+from .mExceptions import \
+  acExceptions, \
+  cTCPIPConnectionDisconnectedException, \
+  cTCPIPConnectionShutdownException, \
+  cTCPIPDNSUnknownHostnameException, \
+  cTCPIPInvalidAddressException, \
+  cTCPIPNoAvailablePortsException, \
+  cTCPIPPortAlreadyInUseAsAcceptorException, \
+  cTCPIPPortNotPermittedException;
 
 from mMultiThreading import cLock, cThread, cWithCallbacks;
 try: # SSL support is optional.
@@ -316,5 +324,6 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   def __str__(oSelf):
     return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));
 
+# For convenient access:
 for cException in acExceptions:
   setattr(cTCPIPConnectionAcceptor, cException.__name__, cException);

@@ -13,7 +13,10 @@ from mNotProvided import \
     zNotProvided;
 
 from .cTCPIPConnection import cTCPIPConnection;
-from .mExceptions import *;
+from .mExceptions import \
+    cTCPIPConnectionDisconnectedException, \
+    cTCPIPConnectionShutdownException, \
+    cTCPIPDataTimeoutException;
 
 # We cannot use select.select to wait for data to be available for reading
 # for secure connections, 
@@ -100,7 +103,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
           *txArguments,
           **dxArguments,
         );
-      except (cTCPIPConnectionShutdownException, cTCPIPConnectionDisconnectedException):
+      except (cTCPIPConnectionDisconnectedException, cTCPIPConnectionShutdownException):
         # If we have no bytes in the buffer and we cannot read bytes because the
         # connection was shut down or disconnected, throw the relevant exception.
         # Otherwise, we will return the bytes in the buffer.
