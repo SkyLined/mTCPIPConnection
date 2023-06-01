@@ -63,8 +63,12 @@ class cTCPIPConnection(cWithCallbacks):
   @classmethod
   @ShowDebugOutput
   def foConnectTo(cClass, \
-    sbHostnameOrIPAddress, uPortNumber, n0zConnectTimeoutInSeconds = zNotProvided,
-    o0SSLContext = None, n0zSecureTimeoutInSeconds = zNotProvided,
+    sbHostnameOrIPAddress,
+    uPortNumber,
+    *,
+    n0zConnectTimeoutInSeconds = zNotProvided,
+    o0SSLContext = None,
+    n0zSecureTimeoutInSeconds = zNotProvided,
     f0HostnameOrIPAddressInvalidCallback = None,
     f0ResolvingHostnameCallback = None,
     f0ResolvingHostnameFailedCallback = None,
@@ -223,7 +227,11 @@ class cTCPIPConnection(cWithCallbacks):
           raise oException;
         else:
           continue;
-      oConnection = cClass(oPythonSocket, sbzRemoteHostname = sbzHostname, bCreatedLocally = True);
+      oConnection = cClass(
+        oPythonSocket,
+        sbzRemoteHostname = sbzHostname,
+        bCreatedLocally = True,
+      );
       if o0SSLContext:
         oConnection.fSecure(
           oSSLContext = o0SSLContext,
@@ -234,7 +242,11 @@ class cTCPIPConnection(cWithCallbacks):
     
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilBytesAreAvailableForReading(cClass, aoConnections, n0TimeoutInSeconds = None):
+  def faoWaitUntilBytesAreAvailableForReading(cClass,
+    aoConnections,
+    *,
+    n0TimeoutInSeconds = None,
+  ):
     fAssertType("aoConnections", aoConnections, [cTCPIPConnection]);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     # select.select does not work well on secure sockets, so we use the non-secure sockets
@@ -262,7 +274,14 @@ class cTCPIPConnection(cWithCallbacks):
         return []; # Waiting timed out.
   
   @ShowDebugOutput
-  def __init__(oSelf, oPythonSocket, o0SecurePythonSocket = None, o0SSLContext = None, sbzRemoteHostname = zNotProvided, bCreatedLocally = False):
+  def __init__(oSelf,
+    oPythonSocket,
+    *,
+    o0SecurePythonSocket = None,
+    o0SSLContext = None,
+    sbzRemoteHostname = zNotProvided,
+    bCreatedLocally = False,
+  ):
     fAssertType("sbzRemoteHostname", sbzRemoteHostname, bytes, zNotProvided);
     # The initial python socket is not secure. We can "wrap" the socket with SSL
     # to secure it repeatedly to "tunnel" multiple SSL connections. Each time
@@ -358,11 +377,20 @@ class cTCPIPConnection(cWithCallbacks):
     return oSelf.__aoSSLContexts[-1] if len(oSelf.__aoSSLContexts) > 0 else None;
   
   @ShowDebugOutput
-  def fSecure(oSelf, oSSLContext, n0zTimeoutInSeconds = zNotProvided, sWhile = "securing connection"):
+  def fSecure(oSelf,
+    oSSLContext,
+    *,
+    n0zTimeoutInSeconds = zNotProvided,
+    sWhile = "securing connection",
+  ):
     fAssertType("n0zTimeoutInSeconds", n0zTimeoutInSeconds, int, float, zNotProvided, None);
     assert m0SSL, \
         "Cannot load module mSSL; fSecure() cannot be used!";
-    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowReading = True, bShouldAllowWriting = True);
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+      sWhile,
+      bShouldAllowReading = True,
+      bShouldAllowWriting = True,
+    );
     try:
       oSecurePythonSocket = oSSLContext.foWrapSocket(
         oPythonSocket = oSelf.__oPythonSocket, # Tunnel through existing SSL layer if needed.
@@ -375,17 +403,27 @@ class cTCPIPConnection(cWithCallbacks):
         # The following will check what was shut doen and call __fHandleShutDownFor(Reading|Writing)
         oSelf.__fCheckIfSocketAllowsReading(sWhile);
         oSelf.__fCheckIfSocketAllowsWriting(sWhile);
-        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bMustThrowException = True);
+        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+          sWhile,
+          bMustThrowException = True,
+        );
       elif fbExceptionMeansSocketDisconnected(oException):
         fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
         oSelf.__fHandleDisconnect();
-        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bMustThrowException = True);
+        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+          sWhile,
+          bMustThrowException = True,
+        );
       elif isinstance(oException, m0SSL.mExceptions.cSSLException):
         raise;
 # This has been disabled - I presume I did so because SSL disconnects the connect when there is an acception.
 #        # The connection could have been shutdown or disconnected while doing the SSL handshake.
 #        # In that case, we'll throw the appropriate exception instead of the mSSL exception.
-#        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowReading = True, bShouldAllowWriting = True);
+#        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+#          sWhile,
+#          bShouldAllowReading = True,
+#          bShouldAllowWriting = True,
+#        );
       else:
         raise;
     oSelf.__aoPythonSockets.append(oSecurePythonSocket);
@@ -431,7 +469,9 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__fDisconnect();
   
   @ShowDebugOutput
-  def fbWait(oSelf, nTimeoutInSeconds):
+  def fbWait(oSelf,
+    nTimeoutInSeconds,
+  ):
     fAssertType("nTimeoutInSeconds", nTimeoutInSeconds, int, float, None);
     return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
@@ -443,7 +483,9 @@ class cTCPIPConnection(cWithCallbacks):
   def bShouldAllowWriting(oSelf):
     return oSelf.__bShouldAllowWriting;
   
-  def __fCheckIfSocketAllowsReading(oSelf, sWhile):
+  def __fCheckIfSocketAllowsReading(oSelf,
+    sWhile,
+  ):
     assert oSelf.__bShouldAllowReading, \
         "Check if __bShouldAllowReading is True before calling!";
     if oSelf.__oPythonSocket.fileno() == -1:
@@ -473,7 +515,9 @@ class cTCPIPConnection(cWithCallbacks):
     else:
       fShowDebugOutput(oSelf, "The socket should still allows reading.");
   
-  def __fHandleShutdownForReading(oSelf, sWhile):
+  def __fHandleShutdownForReading(oSelf,
+    sWhile,
+  ):
     oSelf.__bShouldAllowReading = False;
     if oSelf.__bShouldAllowWriting: oSelf.__fCheckIfSocketAllowsWriting(sWhile);
     if not oSelf.bConnected:
@@ -483,7 +527,9 @@ class cTCPIPConnection(cWithCallbacks):
     else:
       fShowDebugOutput(oSelf, "Connection shutdown for reading while %s." % sWhile);
   
-  def __fCheckIfSocketAllowsWriting(oSelf, sWhile):
+  def __fCheckIfSocketAllowsWriting(oSelf,
+    sWhile,
+  ):
     assert oSelf.__bShouldAllowWriting, \
         "Check if __bShouldAllowWriting is True before calling!";
     iFileNo = oSelf.__oPythonSocket.fileno();
@@ -493,7 +539,7 @@ class cTCPIPConnection(cWithCallbacks):
     # Check if it is not shutdown for writing or disconnected at this time.
     bIsWritable = len(select.select([], [iFileNo], [], 0)[1]) == 1;
     if not bIsWritable:
-      oSelf.__fHandleShutdownForWriting(sWhile);
+      oSelf.__fHandleShutdownForWritingWhile(sWhile);
     try:
       # This can also throw an exception if the socket has been closed, so it's
       # inside the try...except loop:
@@ -508,7 +554,9 @@ class cTCPIPConnection(cWithCallbacks):
     else:
       fShowDebugOutput(oSelf, "The socket should still allows writing.");
   
-  def __fHandleShutdownForWriting(oSelf, sWhile):
+  def __fHandleShutdownForWritingWhile(oSelf,
+    sWhile,
+  ):
     oSelf.__bShouldAllowWriting = False;
     if oSelf.__bShouldAllowReading: oSelf.__fCheckIfSocketAllowsReading(sWhile);
     if not oSelf.bConnected:
@@ -529,13 +577,19 @@ class cTCPIPConnection(cWithCallbacks):
     return not oSelf.bConnected;
   
   def fThrowExceptionIfShutdownOrDisconnected(oSelf):
-    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(
-      sWhile = "checking if connection is not shut down or disconnected",
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+      "checking if connection is not shut down or disconnected",
       bShouldAllowReading = True,
       bShouldAllowWriting = True
     );
   
-  def __fThrowDisconnectedOrShutdownExceptionIfApplicable(oSelf, sWhile, bShouldAllowReading = False, bShouldAllowWriting = False, bMustThrowException = False):
+  def __fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(oSelf,
+    sWhile,
+    *,
+    bShouldAllowReading = False,
+    bShouldAllowWriting = False,
+    bMustThrowException = False,
+  ):
     if oSelf.__oPythonSocket.fileno() == -1:
       oSelf.__fHandleDisconnect();
     else:
@@ -568,8 +622,14 @@ class cTCPIPConnection(cWithCallbacks):
     assert not bMustThrowException, \
         "The connection was expected to be shut down or disconnected but neither was true.";
   
-  def __fbSelectForBytesAvailable(oSelf, n0TimeoutInSeconds, sWhile):
-    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowReading = True);
+  def __fbSelectForBytesAvailable(oSelf,
+    n0TimeoutInSeconds,
+    sWhile,
+  ):
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+      sWhile,
+      bShouldAllowReading = True,
+    );
     iFileNo = oSelf.__oPythonSocket.fileno();
     if iFileNo == -1:
       oSelf.__fHandleDisconnect();
@@ -579,11 +639,18 @@ class cTCPIPConnection(cWithCallbacks):
       (aiReadableFileNos, xIgnore, aiErrorFileNos) = select.select([iFileNo], [], [iFileNo], n0TimeoutInSeconds);
       bReadable = len(aiErrorFileNos) == 0;
     if not bReadable:
-      oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowReading = True, bMustThrowException = True);
+      oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+        sWhile,
+        bShouldAllowReading = True,
+        bMustThrowException = True,
+      );
     return len(aiReadableFileNos) == 1;
   
   @ShowDebugOutput
-  def fbBytesAreAvailableForReading(oSelf, sWhile = "checking if bytes are available for reading"):
+  def fbBytesAreAvailableForReading(oSelf,
+    *,
+    sWhile = "checking if bytes are available for reading",
+  ):
     # Can throw a shutdown or disconnected exception.
     # Returns true if there are any bytes that can currently to be read.
     if oSelf.__fbSelectForBytesAvailable(0, sWhile):
@@ -592,7 +659,11 @@ class cTCPIPConnection(cWithCallbacks):
     return False;
   
   @ShowDebugOutput
-  def fWaitUntilBytesAreAvailableForReading(oSelf, n0TimeoutInSeconds = None, sWhile = "waiting for bytes to become available for reading"):
+  def fWaitUntilBytesAreAvailableForReading(oSelf,
+    *,
+    n0TimeoutInSeconds = None,
+    sWhile = "waiting for bytes to become available for reading",
+  ):
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns once there are any bytes that can currently to be read or the
@@ -617,12 +688,20 @@ class cTCPIPConnection(cWithCallbacks):
     );
   
   @ShowDebugOutput
-  def fsbReadAvailableBytes(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, sWhile = "reading available bytes"):
+  def fsbReadAvailableBytes(oSelf,
+    *,
+    u0MaxNumberOfBytes = None,
+    n0TimeoutInSeconds = None,
+    sWhile = "reading available bytes",
+  ):
     # Can throw a shutdown or disconnected exception *if* this happens before any bytes can be read.
     # Returns any bytes that can currently be read, this could be "".
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
-    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowReading = True);
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+      sWhile,
+      bShouldAllowReading = True,
+    );
     sbAvailableBytes = b"";
     nStartTime = time.time();
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
@@ -673,7 +752,11 @@ class cTCPIPConnection(cWithCallbacks):
     return sbAvailableBytes;
   
   @ShowDebugOutput
-  def fsbReadBytesUntilDisconnected(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, sWhile = "reading bytes until disconnected"):
+  def fsbReadBytesUntilDisconnected(oSelf,
+    u0MaxNumberOfBytes = None,
+    n0TimeoutInSeconds = None,
+    sWhile = "reading bytes until disconnected",
+  ):
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     nStartTime = time.time();
@@ -707,13 +790,21 @@ class cTCPIPConnection(cWithCallbacks):
     return sbBytesRead;
   
   @ShowDebugOutput
-  def fWriteBytes(oSelf, sbBytes, n0TimeoutInSeconds = None, sWhile = "writing bytes"):
+  def fWriteBytes(oSelf,
+    sbBytes,
+    *,
+    n0TimeoutInSeconds = None,
+    sWhile = "writing bytes",
+  ):
     fAssertType("sbBytes", sbBytes, bytes);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns once all bytes have been written.
     uNumberOfBytesToWrite = len(sbBytes);
-    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowWriting = True);
+    oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+      sWhile,
+      bShouldAllowWriting = True,
+    );
     nStartTime = time.time();
     n0EndTime = (nStartTime + n0TimeoutInSeconds) if n0TimeoutInSeconds is not None else None;
     uTotalNumberOfBytesWritten = 0;
@@ -734,13 +825,17 @@ class cTCPIPConnection(cWithCallbacks):
         fShowDebugOutput(oSelf, "Exception during `send()`: %s(%s)" % (oException.__class__.__name__, oException));
         if fbExceptionMeansSocketShutdown(oException):
           fShowDebugOutput(oSelf, "Connection shutdown while %s." % sWhile);
-          oSelf.__fHandleShutdownForWriting(sWhile);
+          oSelf.__fHandleShutdownForWritingWhile(sWhile);
         elif fbExceptionMeansSocketDisconnected(oException):
           fShowDebugOutput(oSelf, "Connection disconnected while %s." % sWhile);
           oSelf.__fHandleDisconnect();
         else:
           raise;
-        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable(sWhile, bShouldAllowWriting = True, bMustThrowException = True);
+        oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+          sWhile,
+          bShouldAllowWriting = True,
+          bMustThrowException = True,
+        );
       fShowDebugOutput(oSelf, "%d bytes written." % uNumberOfBytesWrittenInSendCall);
       oSelf.fFireCallbacks("bytes written", sbBytes[:uNumberOfBytesWrittenInSendCall]);
       sbBytes = sbBytes[uNumberOfBytesWrittenInSendCall:];
@@ -748,17 +843,27 @@ class cTCPIPConnection(cWithCallbacks):
   
   @ShowDebugOutput
   def fShutdownForReading(oSelf):
-    oSelf.__fShutdown(bForReading = True);
+    oSelf.__fShutdown(
+      bForReading = True,
+    );
   
   @ShowDebugOutput
   def fShutdownForWriting(oSelf):
-    oSelf.__fShutdown(bForWriting = True);
+    oSelf.__fShutdown(
+      bForWriting = True,
+    );
   
   @ShowDebugOutput
   def fShutdown(oSelf):
-    oSelf.__fShutdown(bForReading = True, bForWriting = True);
+    oSelf.__fShutdown(
+      bForReading = True,
+      bForWriting = True,
+    );
   
-  def __fShutdown(oSelf, bForReading = False, bForWriting = False):
+  def __fShutdown(oSelf,
+    bForReading = False,
+    bForWriting = False,
+  ):
     if oSelf.__oPythonSocket.fileno() == -1:
       oSelf.__fHandleDisconnect();
       return;
@@ -798,7 +903,10 @@ class cTCPIPConnection(cWithCallbacks):
         oSelf.__fHandleDisconnect();
       else:
         raise;
-      oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicable("shutting down for %s" % sShutdownFor, bMustThrowException = True);
+      oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
+        "shutting down for %s" % sShutdownFor,
+        bMustThrowException = True,
+      );
     if bForReading:
       oSelf.fFireCallbacks("shutdown for reading");
     if bForWriting:
@@ -806,7 +914,9 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.fFireCallbacks("shutdown");
   
   @ShowDebugOutput
-  def fDisconnect(oSelf, bShutdownFirst = True):
+  def fDisconnect(oSelf,
+    bShutdownFirst = True,
+  ):
     if not oSelf.bConnected: return;
     if bShutdownFirst:
       fShowDebugOutput(oSelf, "Shutting socket down...");

@@ -144,7 +144,9 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
           );
       else:
         n0TimeoutInSeconds = None;
-      super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds);
+      super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(
+        n0TimeoutInSeconds = n0TimeoutInSeconds,
+      );
       sbBytesRead = super(cBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes();
       oSelf.__sbReadBuffer += sbBytesRead;
     fShowDebugOutput(oSelf, "Read bytes to make sure there are at least %d bytes resulted in a %d byte buffer." % \
