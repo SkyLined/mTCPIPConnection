@@ -27,7 +27,8 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     aoConnections,
     sWaitingUntilState,
     faoWaitUntilSomeState,
-    n0WaitTimeoutInSeconds, n0TransactionTimeoutInSeconds
+    n0WaitTimeoutInSeconds,
+    n0TransactionTimeoutInSeconds
   ):
     # Keep track of which connections are in the waiting state and which
     # connects we have started transactions on, so we can undo this if an
@@ -69,7 +70,12 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilBytesAreAvailableForReadingAndStartTransactions(cClass, aoConnections, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
+  def faoWaitUntilBytesAreAvailableForReadingAndStartTransactions(cClass,
+    aoConnections,
+    *,
+    n0WaitTimeoutInSeconds = None,
+    n0TransactionTimeoutInSeconds = None,
+  ):
     fAssertType("aoConnections", aoConnections, [cTransactionalBufferedTCPIPConnection]);
     return cClass.__faoWaitUntilSomeStateAndStartTransactions(
       aoConnections,
@@ -81,7 +87,12 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilTransactionsCanBeStartedAndStartTransactions(cClass, aoConnections, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
+  def faoWaitUntilTransactionsCanBeStartedAndStartTransactions(cClass,
+    aoConnections,
+    *,
+    n0WaitTimeoutInSeconds = None,
+    n0TransactionTimeoutInSeconds = None,
+  ):
     fAssertType("aoConnections", aoConnections, [cTransactionalBufferedTCPIPConnection]);
     return cClass.__faoWaitUntilSomeStateAndStartTransactions(
       aoConnections,
@@ -92,7 +103,10 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     );
   @classmethod
   @ShowDebugOutput
-  def __faoWaitUntilTransactionCanBeStarted(oSelf, aoConnections, n0TimeoutInSeconds):
+  def __faoWaitUntilTransactionCanBeStarted(oSelf,
+    aoConnections,
+    n0TimeoutInSeconds,
+  ):
     fAssertType("aoConnections", aoConnections, [cTransactionalBufferedTCPIPConnection]);
     aoUnlockedTransactionLocks = cLock.faoWaitUntilLocksAreUnlocked(
       aoLocks = [
@@ -127,7 +141,11 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.fAddEvents("transaction started", "transaction ended");
   
   @ShowDebugOutput
-  def fStartTransaction(oSelf, n0TimeoutInSeconds = None, sWhile = "starting transaction"):
+  def fStartTransaction(oSelf,
+    *,
+    n0TimeoutInSeconds = None,
+    sWhile = "starting transaction",
+  ):
     # Start a transaction if no transaction is currently active and no one is
     # waiting for bytes to be available for reading to start a transaction.
     # Returns True if a transaction was started, False if one was active.
@@ -192,7 +210,11 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
   
   @ShowDebugOutput
-  def fRestartTransaction(oSelf, n0TimeoutInSeconds = None, sWhile = "restarting transaction"):
+  def fRestartTransaction(oSelf,
+    *,
+    n0TimeoutInSeconds = None,
+    sWhile = "restarting transaction",
+  ):
     # End the current transaction and start a new one, with a new timeout,
     # but without unlocking the connection. As a result, no other transaction
     # is allowed in between: the new transaction immediately follow the old one.
@@ -247,7 +269,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     finally:
       oSelf.fFireTerminatedCallbackIfPostponed();
   
-  def __fStartWaitingUntilSomeState(oSelf, sWaitingUntilState):
+  def __fStartWaitingUntilSomeState(oSelf,
+    sWaitingUntilState,
+  ):
     oSelf.__oPropertiesLock.fAcquire();
     try:
       if not oSelf.__oTransactionLock.fbAcquire():
@@ -281,7 +305,12 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     finally:
       oSelf.__oPropertiesLock.fRelease();
   
-  def __fEndWaitingUntilSomeState(oSelf, sWaitingUntilState, bStartTransaction = False, n0TransactionTimeoutInSeconds = None):
+  def __fEndWaitingUntilSomeState(oSelf,
+    sWaitingUntilState,
+    *,
+    bStartTransaction = False,
+    n0TransactionTimeoutInSeconds = None,
+  ):
     oSelf.__oPropertiesLock.fAcquire();
     if bStartTransaction:
       oSelf.fPostponeTerminatedCallback();
@@ -341,7 +370,11 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__oPropertiesLock.fRelease();
   
   @ShowDebugOutput
-  def fWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf, n0WaitTimeoutInSeconds = None, n0TransactionTimeoutInSeconds = None):
+  def fWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf,
+    *,
+    n0WaitTimeoutInSeconds = None,
+    n0TransactionTimeoutInSeconds = None,
+  ):
     # Wait until bytes are available for reading and then start a transaction.
     # Raise cTCPIPConnectionCannotBeUsedConcurrentlyException if a transaction is
     # currently active or someone else is already waiting until some state.
@@ -351,7 +384,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     sWaitingUntilState = "bytes are available for reading";
     oSelf.__fStartWaitingUntilSomeState(sWaitingUntilState);
     try:
-      oSelf.fWaitUntilBytesAreAvailableForReading(n0WaitTimeoutInSeconds);
+      oSelf.fWaitUntilBytesAreAvailableForReading(
+        n0TimeoutInSeconds = n0WaitTimeoutInSeconds,
+      );
     except:
       oSelf.__fEndWaitingUntilSomeState(
         sWaitingUntilState,
@@ -377,19 +412,27 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes(*txArguments, **dxArguments);
   
-  def fsbReadBytesUntilDisconnected(oSelf, u0MaxNumberOfBytes = None):
+  def fsbReadBytesUntilDisconnected(oSelf,
+    *,
+    u0MaxNumberOfBytes = None,
+  ):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsbReadBytesUntilDisconnected( \
         u0MaxNumberOfBytes = u0MaxNumberOfBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
-  def fsbReadBytes(oSelf, uNumberOfBytes):
+  def fsbReadBytes(oSelf,
+    uNumberOfBytes,
+  ):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsbReadBytes( \
         uNumberOfBytes = uNumberOfBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
-  def fsb0ReadUntilMarker(oSelf, sbMarker, u0MaxNumberOfBytes = None):
+  def fsb0ReadUntilMarker(oSelf,
+    sbMarker,
+    u0MaxNumberOfBytes = None,
+  ):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsb0ReadUntilMarker( \
@@ -400,7 +443,9 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         "A transaction must be started before this connection can be shut down for reading!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fShutdownForReading(*txArguments, **dxArguments);
   
-  def fuWriteBytes(oSelf, sbBytes):
+  def fuWriteBytes(oSelf,
+    sbBytes,
+  ):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be written to this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fuWriteBytes( \
