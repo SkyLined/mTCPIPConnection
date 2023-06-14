@@ -145,7 +145,9 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
         sbReceivedData = b"";
         while len(sbReceivedData) < len(sb0ExpectedResponseData):
           oConsole.fOutput("* ", sName, " test client: waiting %f seconds until bytes are available for reading..." % (gnWaitForDataTimeoutInSeconds,));
-          oConnection.fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds = gnWaitForDataTimeoutInSeconds);
+          oConnection.fWaitUntilBytesAreAvailableForReading(
+            n0WaitTimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
+          );
           oConsole.fOutput("* ", sName, " test client: reading bytes...");
           sbReceivedData += oConnection.fsbReadAvailableBytes();
       assert sbReceivedData == sb0ExpectedResponseData, \

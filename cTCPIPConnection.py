@@ -245,14 +245,14 @@ class cTCPIPConnection(cWithCallbacks):
   def faoWaitUntilBytesAreAvailableForReading(cClass,
     aoConnections,
     *,
-    n0TimeoutInSeconds = None,
+    n0WaitTimeoutInSeconds = None,
   ):
     fAssertType("aoConnections", aoConnections, [cTCPIPConnection]);
-    fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
+    fAssertType("n0WaitTimeoutInSeconds", n0WaitTimeoutInSeconds, int, float, None);
     # select.select does not work well on secure sockets, so we use the non-secure sockets
     # as proxies; there may be SSL traffic without data being send from the remote end, so
     # we may flag a connection as having data to be read when it has none.
-    n0EndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
+    n0EndTime = time.time() + n0WaitTimeoutInSeconds if n0WaitTimeoutInSeconds is not None else None;
     while 1:
       aoConnectionsWithBytesAvailableForReading = [];
       aiPythonSocketFileNos = [];
@@ -269,8 +269,8 @@ class cTCPIPConnection(cWithCallbacks):
       if not aiPythonSocketFileNos:
         return []; # All connections have been closed; no connection left to wait for.
       # Wait until the python sockets become readable, shutdown or closed:
-      n0TimeoutInSeconds = n0EndTime - time.time() if n0EndTime is not None else None;
-      if n0TimeoutInSeconds < 0 or len(select.select(aiPythonSocketFileNos, [], [], n0TimeoutInSeconds)[0]) == 0:
+      n0WaitTimeoutInSeconds = n0EndTime - time.time() if n0EndTime is not None else None;
+      if n0WaitTimeoutInSeconds < 0 or len(select.select(aiPythonSocketFileNos, [], [], n0WaitTimeoutInSeconds)[0]) == 0:
         return []; # Waiting timed out.
   
   @ShowDebugOutput
@@ -661,10 +661,10 @@ class cTCPIPConnection(cWithCallbacks):
   @ShowDebugOutput
   def fWaitUntilBytesAreAvailableForReading(oSelf,
     *,
-    n0TimeoutInSeconds = None,
+    n0WaitTimeoutInSeconds = None,
     sWhile = "waiting for bytes to become available for reading",
   ):
-    fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
+    fAssertType("n0WaitTimeoutInSeconds", n0WaitTimeoutInSeconds, int, float, None);
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns once there are any bytes that can currently to be read or the
     # socket was disconnected; the later may not result in an exception being
@@ -675,14 +675,14 @@ class cTCPIPConnection(cWithCallbacks):
     # closed.
     # Reading from the socket did not cause an exception, so the socket isn't
     # shutdown or closed yet.
-    if oSelf.__fbSelectForBytesAvailable(n0TimeoutInSeconds, sWhile):
+    if oSelf.__fbSelectForBytesAvailable(n0WaitTimeoutInSeconds, sWhile):
       fShowDebugOutput(oSelf, "Data should be available for reading now.");
       return True;
     raise cTCPIPDataTimeoutException(
       "Timeout on connection %s while %s after %s seconds." % (
         oSelf.fsGetEndPointsAndDirection(),
         sWhile,
-        n0TimeoutInSeconds,
+        n0WaitTimeoutInSeconds,
       ),
       oConnection = oSelf,
     );
@@ -775,7 +775,10 @@ class cTCPIPConnection(cWithCallbacks):
             ),
             oConnection = oSelf,
           );
-        oSelf.fWaitUntilBytesAreAvailableForReading(n0TimeoutInSeconds, sWhile);
+        oSelf.fWaitUntilBytesAreAvailableForReading(
+          n0WaitTimeoutInSeconds = n0TimeoutInSeconds,
+          sWhile = sWhile,
+        );
         sbAvailableBytes = oSelf.fsbReadAvailableBytes(u0MaxNumberOfBytes = u0MaxNumberOfBytesRemaining, sWhile = sWhile);
         if len(sbAvailableBytes) == 0:
           # select.select reported a signal on the socket. If it did not signal

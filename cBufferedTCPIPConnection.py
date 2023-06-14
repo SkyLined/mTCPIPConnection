@@ -84,19 +84,24 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
   @ShowDebugOutput
   def fWaitUntilBytesAreAvailableForReading(oSelf,
     *,
-    n0TimeoutInSeconds = None,
+    n0WaitTimeoutInSeconds = None,
     sWhile = "waiting for bytes to become available for reading",
   ):
     assert not oSelf.__bPythonSocketAccessProvided, \
         "This method cannot be used after the `oPythonSocket` property has been accessed";
     if len(oSelf.__sbReadBuffer) == 0:
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(
-        n0TimeoutInSeconds = n0TimeoutInSeconds,
+        n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
         sWhile = sWhile,
       );
   
   @ShowDebugOutput
-  def fsbReadAvailableBytes(oSelf, u0MaxNumberOfBytes = None, n0TimeoutInSeconds = None, *txArguments, **dxArguments):
+  def fsbReadAvailableBytes(oSelf,
+    u0MaxNumberOfBytes = None,
+    n0TimeoutInSeconds = None,
+    *txArguments,
+    **dxArguments,
+  ):
     fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
     fAssertType("n0TimeoutInSeconds", n0TimeoutInSeconds, int, float, None);
     assert not oSelf.__bPythonSocketAccessProvided, \
@@ -152,7 +157,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
       else:
         n0TimeoutInSeconds = None;
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(
-        n0TimeoutInSeconds = n0TimeoutInSeconds,
+        n0WaitTimeoutInSeconds = n0TimeoutInSeconds,
       );
       sbBytesRead = super(cBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes();
       oSelf.__sbReadBuffer += sbBytesRead;

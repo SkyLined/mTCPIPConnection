@@ -44,7 +44,10 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
             "Cannot wait until %s on %s: %s" % (sWaitingUntilState, repr(oConnection), repr(oException));
         else:
           aoConnectionsWaitingForSomeState.append(oConnection);
-      aoConnectionsInSomeState = faoWaitUntilSomeState(aoConnectionsWaitingForSomeState, n0WaitTimeoutInSeconds);
+      aoConnectionsInSomeState = faoWaitUntilSomeState(
+        aoConnectionsWaitingForSomeState,
+        n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
+      );
       for oConnection in aoConnectionsWaitingForSomeState[:]:
         # We iterate over a copy because we modify the list, which could cause items to be skipped otherwise.
         bStartTransaction = oConnection in aoConnectionsInSomeState;
@@ -385,7 +388,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     oSelf.__fStartWaitingUntilSomeState(sWaitingUntilState);
     try:
       oSelf.fWaitUntilBytesAreAvailableForReading(
-        n0TimeoutInSeconds = n0WaitTimeoutInSeconds,
+        n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
       );
     except:
       oSelf.__fEndWaitingUntilSomeState(
