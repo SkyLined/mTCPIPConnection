@@ -68,6 +68,7 @@ class cTCPIPConnection(cWithCallbacks):
     *,
     n0zConnectTimeoutInSeconds = zNotProvided,
     o0SSLContext = None,
+    bzCheckHostname = zNotProvided,
     n0zSecureTimeoutInSeconds = zNotProvided,
     f0HostnameOrIPAddressInvalidCallback = None,
     f0ResolvingHostnameCallback = None,
@@ -236,6 +237,7 @@ class cTCPIPConnection(cWithCallbacks):
         oConnection.fSecure(
           oSSLContext = o0SSLContext,
           n0zTimeoutInSeconds = n0zSecureTimeoutInSeconds,
+          bzCheckHostname = bzCheckHostname,
         );
       return oConnection;
     raise AssertionError("socket.getaddrinfo(...) return an empty list!?");
@@ -381,6 +383,7 @@ class cTCPIPConnection(cWithCallbacks):
     oSSLContext,
     *,
     n0zTimeoutInSeconds = zNotProvided,
+    bzCheckHostname = zNotProvided,
     sWhile = "securing connection",
   ):
     fAssertType("n0zTimeoutInSeconds", n0zTimeoutInSeconds, int, float, zNotProvided, None);
@@ -395,6 +398,7 @@ class cTCPIPConnection(cWithCallbacks):
       oSecurePythonSocket = oSSLContext.foWrapSocket(
         oPythonSocket = oSelf.__oPythonSocket, # Tunnel through existing SSL layer if needed.
         n0zTimeoutInSeconds = n0zTimeoutInSeconds,
+        bzCheckHostname = bzCheckHostname,
       );
     except Exception as oException:
       fShowDebugOutput(oSelf, "Exception while wrapping socket: %s(%s)" % (oException.__class__.__name__, oException));

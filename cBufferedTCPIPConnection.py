@@ -51,7 +51,12 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSelf.__bPythonSocketAccessProvided = True;
     return super(cBufferedTCPIPConnection, oSelf).oPythonSocket;
   
-  def fSecure(oSelf, oSSLContext, n0zTimeoutInSeconds = zNotProvided):
+  def fSecure(oSelf,
+    oSSLContext,
+    *,
+    n0zTimeoutInSeconds = zNotProvided,
+    bzCheckHostname = zNotProvided,
+  ):
     fAssertType("n0zTimeoutInSeconds", n0zTimeoutInSeconds, int, float, zNotProvided, None);
     assert len(oSelf.__sbReadBuffer) == 0, \
         "This connection cannot be secured because it has data in its read buffer: %s!" % repr(oSelf.__sbReadBuffer);
@@ -59,7 +64,8 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
         "This method cannot be used after the `oPythonSocket` property has been accessed";
     return super(cBufferedTCPIPConnection, oSelf).fSecure(
       oSSLContext,
-      n0zTimeoutInSeconds = n0zTimeoutInSeconds
+      n0zTimeoutInSeconds = n0zTimeoutInSeconds,
+      bzCheckHostname = bzCheckHostname,
     );
   
   @property
