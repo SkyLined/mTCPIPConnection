@@ -446,7 +446,7 @@ class cTCPIPConnection(cWithCallbacks):
   
   @property
   def bStopping(oSelf):
-    return oSelf.__bStopping;
+    return oSelf.__bStopping or not oSelf.bConnected;
   
   @ShowDebugOutput
   def fStop(oSelf):
@@ -966,6 +966,7 @@ class cTCPIPConnection(cWithCallbacks):
     fShowDebugOutput(oSelf, "Disconnected.");
   
   def __fHandleDisconnect(oSelf):
+    oSelf.__bStopping = True;
     oSelf.__oConnectedPropertyAccessLock.fAcquire();
     try:
       if not oSelf.__oTerminatedLock.bLocked:
