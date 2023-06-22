@@ -338,6 +338,7 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.fAddEvents(
       "bytes read",
       "bytes written",
+      "disconnected",
       "shutdown for reading", "shutdown for writing", "shutdown",
       "terminated"
     );
@@ -990,6 +991,7 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__oTerminatedLock.fRelease();
     finally:
       oSelf.__oConnectedPropertyAccessLock.fRelease();
+    oSelf.fFireCallbacks("disconnected");
     # Fire terminated event now if we are not holding it.
     if oSelf.__uTerminatedCallbackPostponeCounter == 0:
       fShowDebugOutput(oSelf, "Firing terminated callbacks...");
