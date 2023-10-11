@@ -30,6 +30,7 @@ from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddres
 from .fbExceptionMeansSocketAddressIsUnreachable import fbExceptionMeansSocketAddressIsUnreachable;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
+from .fbExceptionMeansNetworkError import fbExceptionMeansNetworkError;
 from .mExceptions import \
   acExceptions, \
   cTCPIPConnectionDisconnectedException, \
@@ -40,7 +41,8 @@ from .mExceptions import \
   cTCPIPDNSUnknownHostnameException, \
   cTCPIPException, \
   cTCPIPInvalidAddressException, \
-  cTCPIPUnreachableAddressException;
+  cTCPIPUnreachableAddressException, \
+  cTCPIPNetworkErrorException;
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -210,6 +212,12 @@ class cTCPIPConnection(cWithCallbacks):
           elif fbExceptionMeansSocketConnectionRefused(oException):
             oException = cTCPIPConnectionRefusedException(
               "Attempt to connect to server address %s refused." % repr("%s:%d" % (sIPAddress, uPortNumber)),
+              sHostnameOrIPAddress = sIPAddress,
+              uPortNumber = uPortNumber,
+            );
+          elif fbExceptionMeansNetworkError(oException):
+            oException = cTCPIPNetworkErrorException(
+              "Attempt to connect to server address %s failed because of a network error." % repr("%s:%d" % (sIPAddress, uPortNumber)),
               sHostnameOrIPAddress = sIPAddress,
               uPortNumber = uPortNumber,
             );
@@ -514,6 +522,9 @@ class cTCPIPConnection(cWithCallbacks):
         oSelf.__fHandleShutdownForReading(sWhile);
       elif fbExceptionMeansSocketDisconnected(oException):
         fShowDebugOutput(oSelf, "The socket has been disconnected.");
+        oSelf.__fHandleDisconnect();
+      elif fbExceptionMeansNetworkError(oException):
+        fShowDebugOutput(oSelf, "There has been a network error.");
         oSelf.__fHandleDisconnect();
       else:
         raise;

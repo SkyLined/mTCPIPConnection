@@ -73,6 +73,9 @@ class cTCPIPConnectionShutdownException(cTCPIPExceptionWithConnection):
 class cTCPIPConnectionDisconnectedException(cTCPIPExceptionWithConnection):
   pass;
 
+class cTCPIPNetworkErrorException(cTCPIPExceptionWithHostnameOrIPAddressAndPortNumber):
+  pass;
+
 acExceptions = [
   cTCPIPException,
   cTCPIPPortNotPermittedException,
@@ -86,4 +89,5 @@ acExceptions = [
   cTCPIPDNSUnknownHostnameException,
   cTCPIPConnectionShutdownException,
   cTCPIPConnectionCannotBeUsedConcurrentlyException,
+  cTCPIPNetworkErrorException,
 ];
