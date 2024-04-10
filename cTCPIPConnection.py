@@ -25,7 +25,7 @@ from mNotProvided import \
 from .fbExceptionMeansSocketConnectionRefused import fbExceptionMeansSocketConnectionRefused;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansSocketHasNoDataAvailable import fbExceptionMeansSocketHasNoDataAvailable;
-from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
+from .fbExceptionMeansDNSNameCannotBeResolved import fbExceptionMeansDNSNameCannotBeResolved;
 from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
 from .fbExceptionMeansSocketAddressIsUnreachable import fbExceptionMeansSocketAddressIsUnreachable;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
@@ -38,7 +38,7 @@ from .mExceptions import \
   cTCPIPConnectionShutdownException, \
   cTCPIPConnectTimeoutException, \
   cTCPIPDataTimeoutException, \
-  cTCPIPDNSUnknownHostnameException, \
+  cTCPIPDNSNameCannotBeResolvedException, \
   cTCPIPException, \
   cTCPIPInvalidAddressException, \
   cTCPIPUnreachableAddressException, \
@@ -49,14 +49,14 @@ from .mExceptions import \
 # bug, where "too long" is defined by the following value:
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
-def fsbAddressFromHostnameAndPort(sbHostname, uPort):
+def fsbAddressFromHostAndPort(sbHost, uPort):
   # IPv6 Addresses have colons in them; wrap them in [] to prevent confusion with the port number.
-  return (b"[%s]:%d" if b":" in sbHostname else b"%s:%d") % (sbHostname, uPort);
+  return (b"[%s]:%d" if b":" in sbHost else b"%s:%d") % (sbHost, uPort);
 
 class cTCPIPConnection(cWithCallbacks):
   bSSLIsSupported = m0SSL is not None;
   n0DefaultConnectTimeoutInSeconds = 5; # How long to try to connect before giving up?
-  uDefaultReadChunkSize = 0x100 * 0x400; # How many bytes to try to read if we do not know how many are comming.
+  uDefaultReadChunkSize = 0x100 * 0x400; # How many bytes to try to read if we do not know how many are coming.
   if m0SSL is not None:
     tcExceptions = (cTCPIPException, m0SSL.mExceptions.cSSLException);
   else:
@@ -65,21 +65,21 @@ class cTCPIPConnection(cWithCallbacks):
   @classmethod
   @ShowDebugOutput
   def foConnectTo(cClass, \
-    sbHostnameOrIPAddress,
+    sbHost,
     uPortNumber,
     *,
     n0zConnectTimeoutInSeconds = zNotProvided,
     o0SSLContext = None,
-    bzCheckHostname = zNotProvided,
+    bzCheckHost = zNotProvided,
     n0zSecureTimeoutInSeconds = zNotProvided,
-    f0HostnameOrIPAddressInvalidCallback = None,
+    f0HostInvalidCallback = None,
     f0ResolvingHostnameCallback = None,
     f0ResolvingHostnameFailedCallback = None,
     f0HostnameResolvedToIPAddressCallback = None,
     f0ConnectingToIPAddressCallback = None,
     f0ConnectingToIPAddressFailedCallback = None,
   ):
-    fAssertType("sbHostnameOrIPAddress", sbHostnameOrIPAddress, bytes);
+    fAssertType("sbHost", sbHost, bytes);
     fAssertType("uPortNumber", uPortNumber, int);
     fAssertType("n0zConnectTimeoutInSeconds", n0zConnectTimeoutInSeconds, int, float, zNotProvided, None);
     if m0SSL:
@@ -89,14 +89,14 @@ class cTCPIPConnection(cWithCallbacks):
           "Cannot load module mSSL; o0SSLContext cannot be %s!" % repr(o0SSLContext);
     fAssertType("n0zSecureTimeoutInSeconds", n0zSecureTimeoutInSeconds, int, float, zNotProvided, None);
     n0ConnectTimeoutInSeconds = fxGetFirstProvidedValue(n0zConnectTimeoutInSeconds, cClass.n0DefaultConnectTimeoutInSeconds);
-    # Resolve hostname
-    sLowerHostnameOrIPAddress = str(sbHostnameOrIPAddress, "ascii", "strict").lower();
+    # Resolve host
+    sLowerHost = str(sbHost, "ascii", "strict").lower();
     # We may at some poing special case IP addresses and skip resolving them, as this adds no value.
     if f0ResolvingHostnameCallback:
-      f0ResolvingHostnameCallback(sbHostname = sbHostnameOrIPAddress);
+      f0ResolvingHostnameCallback(sbHostname = sbHost);
     try:
       atxAddressInfo = socket.getaddrinfo(
-        sLowerHostnameOrIPAddress,
+        sLowerHost,
         uPortNumber,
         type = socket.SOCK_STREAM,
         proto = socket.IPPROTO_TCP,
@@ -104,23 +104,24 @@ class cTCPIPConnection(cWithCallbacks):
       );
     except Exception as oException:
       if fbExceptionMeansSocketAddressIsInvalid(oException):
-        if f0HostnameOrIPAddressInvalidCallback:
-          f0HostnameOrIPAddressInvalidCallback(sbHostnameOrIPAddress = sbHostnameOrIPAddress);
+        if f0HostInvalidCallback:
+          f0HostInvalidCallback(sbHost = sbHost);
         raise cTCPIPInvalidAddressException(
-          "Cannot connect to invalid address %s." % (
-            repr("%s:%d" % (sLowerHostnameOrIPAddress, uPortNumber)),
+          "Cannot connect to invalid address %s:%s." % (
+            repr(sbHost),
+            repr(uPortNumber)
           ),
-          sHostnameOrIPAddress = sLowerHostnameOrIPAddress,
-          uPortNumber = uPortNumber,
+          sbzHost = sbHost,
+          uzPortNumber = uPortNumber,
         );
-      elif fbExceptionMeansSocketHostnameCannotBeResolved(oException):
+      elif fbExceptionMeansDNSNameCannotBeResolved(oException):
         if f0ResolvingHostnameFailedCallback:
-          f0ResolvingHostnameFailedCallback(sbHostname = sbHostnameOrIPAddress);
-        raise cTCPIPDNSUnknownHostnameException(
-          "Cannot connect to hostname %s because it cannot be resolved." % (
-            repr(sLowerHostnameOrIPAddress),
+          f0ResolvingHostnameFailedCallback(sbHostname = sbHost);
+        raise cTCPIPDNSNameCannotBeResolvedException(
+          "Cannot connect to host %s because it cannot be resolved." % (
+            repr(sbHost),
           ),
-          sHostname = sLowerHostnameOrIPAddress,
+          sbzHost = sbHost,
         );
       else:
         raise;
@@ -135,21 +136,19 @@ class cTCPIPConnection(cWithCallbacks):
       elif iFamily == socket.AF_INET6:
         (sIPAddress, uPortNumber, uFlowInfo, uScopeId) = txAddress; # IPv6
       else:
-        continue; # Not a protocol we suport.
-      if sIPAddress.lower() != sLowerHostnameOrIPAddress:
+        continue; # Not a protocol we support.
+      sbIPAddress = bytes(sIPAddress, "ascii", "strict").lower();
+      if sIPAddress.lower() != sLowerHost:
         if f0HostnameResolvedToIPAddressCallback:
           f0HostnameResolvedToIPAddressCallback(
-            sbHostname = sbHostnameOrIPAddress,
-            sIPAddress = sIPAddress,
+            sbHostname = sbHost,
+            sbIPAddress = sbIPAddress,
             sCanonicalName = sCanonicalName
           );
-        sbzHostname = sbHostnameOrIPAddress;
-      else:
-        sbzHostname = zNotProvided;
       fShowDebugOutput("Connecting to %s:%d (%saddress %s)..." % (
-        ("[%s]" if ":" in sLowerHostnameOrIPAddress else "%s") % (sLowerHostnameOrIPAddress,), # IPv6 Addresses must be wrapped in []
+        ("[%s]" if ":" in sLowerHost else "%s") % (sLowerHost,), # IPv6 Addresses must be wrapped in []
         uPortNumber,
-        ("canonical name %s, " % sCanonicalName) if (sCanonicalName != sLowerHostnameOrIPAddress) else "",
+        ("canonical name %s, " % sCanonicalName) if (sCanonicalName != sLowerHost) else "",
         txAddress[0]
       ));
       # n0zSecureTimeoutInSeconds is pass through
@@ -166,31 +165,35 @@ class cTCPIPConnection(cWithCallbacks):
           pass;
       if f0ConnectingToIPAddressCallback:
         f0ConnectingToIPAddressCallback(
-          sbHostnameOrIPAddress = sbHostnameOrIPAddress,
+          sbHost = sbHost,
+          sbIPAddress = sbIPAddress,
           uPortNumber = uPortNumber,
-          sIPAddress = sIPAddress,
-          sbzHostname = sbzHostname,
         );
       oPythonSocket.settimeout(n0ConnectTimeoutInSeconds);
       try:
         oPythonSocket.connect(txAddress);
       except Exception as oException:
+        # This is unexpected but we need to close the socket even though
+        # we never opened it. *shrug*
+        oPythonSocket.close();
         fShowDebugOutput("Exception during `connect()`: %s(%s)" % (oException.__class__.__name__, oException));
         if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException(
             "Cannot connect to invalid address %s." % (
-              repr("%s:%d" % (sLowerHostnameOrIPAddress, uPortNumber)),
+              repr("%s:%d" % (sLowerHost, uPortNumber)),
             ),
-            sHostnameOrIPAddress = sIPAddress,
-            uPortNumber = uPortNumber,
+            sbzHost = sbHost,
+            sbzIPAddress = sbIPAddress,
+            uzPortNumber = uPortNumber,
           );
         elif fbExceptionMeansSocketAddressIsUnreachable(oException):
           raise cTCPIPUnreachableAddressException(
             "Cannot connect to invalid address %s." % (
-              repr("%s:%d" % (sLowerHostnameOrIPAddress, uPortNumber)),
+              repr("%s:%d" % (sLowerHost, uPortNumber)),
             ),
-            sHostnameOrIPAddress = sIPAddress,
-            uPortNumber = uPortNumber,
+            sbzHost = sbHost,
+            sbzIPAddress = sbIPAddress,
+            uzPortNumber = uPortNumber,
           );
         else:
           if fbExceptionMeansSocketTimeout(oException):
@@ -205,31 +208,33 @@ class cTCPIPConnection(cWithCallbacks):
             # you will see a `cTCPIPConnectTimeoutException` as expected.
             oException = cTCPIPConnectTimeoutException(
               "Attempt to connect to server address %s timed out." % repr("%s:%d" % (sIPAddress, uPortNumber)),
-              sHostnameOrIPAddress = sIPAddress,
-              uPortNumber = uPortNumber,
-              nTimeoutInSeconds = n0ConnectTimeoutInSeconds,
+              sbzHost = sbIPAddress,
+              sbzIPAddress = sbIPAddress,
+              uzPortNumber = uPortNumber,
+              nzTimeoutInSeconds = n0ConnectTimeoutInSeconds,
             );
           elif fbExceptionMeansSocketConnectionRefused(oException):
             oException = cTCPIPConnectionRefusedException(
               "Attempt to connect to server address %s refused." % repr("%s:%d" % (sIPAddress, uPortNumber)),
-              sHostnameOrIPAddress = sIPAddress,
-              uPortNumber = uPortNumber,
+              sbzHost = sbIPAddress,
+              sbzIPAddress = sbIPAddress,
+              uzPortNumber = uPortNumber,
             );
           elif fbExceptionMeansNetworkError(oException):
             oException = cTCPIPNetworkErrorException(
               "Attempt to connect to server address %s failed because of a network error." % repr("%s:%d" % (sIPAddress, uPortNumber)),
-              sHostnameOrIPAddress = sIPAddress,
-              uPortNumber = uPortNumber,
+              sbzHost = sbIPAddress,
+              sbzIPAddress = sbIPAddress,
+              uzPortNumber = uPortNumber,
             );
           else:
             raise;
         if f0ConnectingToIPAddressFailedCallback:
           f0ConnectingToIPAddressFailedCallback(
             oException = oException,
-            sbHostnameOrIPAddress = sbHostnameOrIPAddress,
+            sbHost = sbHost,
+            sbIPAddress = sbIPAddress,
             uPortNumber = uPortNumber,
-            sIPAddress = sIPAddress,
-            sbzHostname = sbzHostname,
           );
         # We will ignore this exception and try the next address unless there are no more addresses.
         if bIsLastAddressInfo:
@@ -238,14 +243,14 @@ class cTCPIPConnection(cWithCallbacks):
           continue;
       oConnection = cClass(
         oPythonSocket,
-        sbzRemoteHostname = sbzHostname,
+        sbzRemoteHost = sbHost,
         bCreatedLocally = True,
       );
       if o0SSLContext:
         oConnection.fSecure(
           oSSLContext = o0SSLContext,
           n0zTimeoutInSeconds = n0zSecureTimeoutInSeconds,
-          bzCheckHostname = bzCheckHostname,
+          bzCheckHost = bzCheckHost,
         );
       return oConnection;
     raise AssertionError("socket.getaddrinfo(...) return an empty list!?");
@@ -289,10 +294,10 @@ class cTCPIPConnection(cWithCallbacks):
     *,
     o0SecurePythonSocket = None,
     o0SSLContext = None,
-    sbzRemoteHostname = zNotProvided,
+    sbzRemoteHost = zNotProvided,
     bCreatedLocally = False,
   ):
-    fAssertType("sbzRemoteHostname", sbzRemoteHostname, bytes, zNotProvided);
+    fAssertType("sbzRemoteHost", sbzRemoteHost, bytes, zNotProvided);
     # The initial python socket is not secure. We can "wrap" the socket with SSL
     # to secure it repeatedly to "tunnel" multiple SSL connections. Each time
     # a new SSL connection is tunneled through the existing connection, a new
@@ -332,13 +337,13 @@ class cTCPIPConnection(cWithCallbacks):
     
     oSelf.txLocalAddress = oSelf.__oPythonSocket.getsockname();
     oSelf.uLocalPortNumber = oSelf.txLocalAddress[1];
-    oSelf.sbLocalHostname = bytes(oSelf.txLocalAddress[0], "ascii", "strict");
-    oSelf.sbLocalAddress = fsbAddressFromHostnameAndPort(oSelf.sbLocalHostname, oSelf.uLocalPortNumber);
+    oSelf.sbLocalHost = bytes(oSelf.txLocalAddress[0], "ascii", "strict");
+    oSelf.sbLocalAddress = fsbAddressFromHostAndPort(oSelf.sbLocalHost, oSelf.uLocalPortNumber);
     
     oSelf.txRemoteAddress = oSelf.__oPythonSocket.getpeername();
     oSelf.uRemotePortNumber = oSelf.txRemoteAddress[1];
-    oSelf.sbRemoteHostname = sbzRemoteHostname if fbIsProvided(sbzRemoteHostname) else bytes(oSelf.txRemoteAddress[0], "ascii", "strict");
-    oSelf.sbRemoteAddress = fsbAddressFromHostnameAndPort(oSelf.sbRemoteHostname, oSelf.uRemotePortNumber);
+    oSelf.sbRemoteHost = sbzRemoteHost if fbIsProvided(sbzRemoteHost) else bytes(oSelf.txRemoteAddress[0], "ascii", "strict");
+    oSelf.sbRemoteAddress = fsbAddressFromHostAndPort(oSelf.sbRemoteHost, oSelf.uRemotePortNumber);
     
     oSelf.__uTerminatedCallbackPostponeCounter = 0;
     oSelf.__bTerminatedCallbackPostponed = False;
@@ -392,7 +397,7 @@ class cTCPIPConnection(cWithCallbacks):
     oSSLContext,
     *,
     n0zTimeoutInSeconds = zNotProvided,
-    bzCheckHostname = zNotProvided,
+    bzCheckHost = zNotProvided,
     sWhile = "securing connection",
   ):
     fAssertType("n0zTimeoutInSeconds", n0zTimeoutInSeconds, int, float, zNotProvided, None);
@@ -407,7 +412,7 @@ class cTCPIPConnection(cWithCallbacks):
       oSecurePythonSocket = oSSLContext.foWrapSocket(
         oPythonSocket = oSelf.__oPythonSocket, # Tunnel through existing SSL layer if needed.
         n0zTimeoutInSeconds = n0zTimeoutInSeconds,
-        bzCheckHostname = bzCheckHostname,
+        bzCheckHost = bzCheckHost,
       );
     except Exception as oException:
       fShowDebugOutput(oSelf, "Exception while wrapping socket: %s(%s)" % (oException.__class__.__name__, oException));
@@ -617,7 +622,7 @@ class cTCPIPConnection(cWithCallbacks):
           oSelf.fsGetEndPointsAndDirection(),
           sWhile,
         ),
-        oConnection = oSelf,
+        ozConnection = oSelf,
       );
     if bShouldAllowReading and not oSelf.__bShouldAllowReading:
       raise cTCPIPConnectionShutdownException(
@@ -625,7 +630,7 @@ class cTCPIPConnection(cWithCallbacks):
           oSelf.fsGetEndPointsAndDirection(),
           sWhile,
         ),
-        oConnection = oSelf,
+        ozConnection = oSelf,
       );
     if bShouldAllowWriting and not oSelf.__bShouldAllowWriting:
       raise cTCPIPConnectionShutdownException(
@@ -633,7 +638,7 @@ class cTCPIPConnection(cWithCallbacks):
           oSelf.fsGetEndPointsAndDirection(),
           sWhile,
         ),
-        oConnection = oSelf,
+        ozConnection = oSelf,
       );
     assert not bMustThrowException, \
         "The connection was expected to be shut down or disconnected but neither was true.";
@@ -700,7 +705,7 @@ class cTCPIPConnection(cWithCallbacks):
         sWhile,
         n0WaitTimeoutInSeconds,
       ),
-      oConnection = oSelf,
+      ozConnection = oSelf,
     );
   
   @ShowDebugOutput
@@ -789,7 +794,7 @@ class cTCPIPConnection(cWithCallbacks):
               sWhile,
               n0TimeoutInSeconds,
             ),
-            oConnection = oSelf,
+            ozConnection = oSelf,
           );
         oSelf.fWaitUntilBytesAreAvailableForReading(
           n0WaitTimeoutInSeconds = n0TimeoutInSeconds,
@@ -835,7 +840,7 @@ class cTCPIPConnection(cWithCallbacks):
             sWhile,
             n0TimeoutInSeconds,
           ),
-          oConnection = oSelf,
+          ozConnection = oSelf,
         );
       oSelf.__oPythonSocket.settimeout(0);
       try:

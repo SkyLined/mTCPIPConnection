@@ -18,13 +18,13 @@ from .fbExceptionMeansPortNotPermitted import fbExceptionMeansPortNotPermitted;
 from .fbExceptionMeansSocketAddressIsInvalid import fbExceptionMeansSocketAddressIsInvalid;
 from .fbExceptionMeansSocketAlreadyInUseAsAcceptor import fbExceptionMeansSocketAlreadyInUseAsAcceptor;
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
-from .fbExceptionMeansSocketHostnameCannotBeResolved import fbExceptionMeansSocketHostnameCannotBeResolved;
+from .fbExceptionMeansDNSNameCannotBeResolved import fbExceptionMeansDNSNameCannotBeResolved;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .mExceptions import \
   acExceptions, \
   cTCPIPConnectionDisconnectedException, \
   cTCPIPConnectionShutdownException, \
-  cTCPIPDNSUnknownHostnameException, \
+  cTCPIPDNSNameCannotBeResolvedException, \
   cTCPIPInvalidAddressException, \
   cTCPIPNoAvailablePortsException, \
   cTCPIPPortAlreadyInUseAsAcceptorException, \
@@ -41,7 +41,7 @@ except ModuleNotFoundError as oException:
 # If theire are no default port numbers, or they are in use, pick the first
 # one that is free one from this range of numbers:
 o0DefaultAdditionalPortNumberRange = range(28876, 65536);
-sbDefaultHostname = bytes(socket.gethostname(), "ascii", "strict");
+sbDefaultHost = bytes(socket.gethostname(), "ascii", "strict");
 
 class cTCPIPConnectionAcceptor(cWithCallbacks):
   bSSLIsSupported = m0SSL is not None;
@@ -49,16 +49,16 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   # protocol can provide them (e.g. port 80 vs 443 for HTTP/HTTPS)
   u0DefaultNonSSLPortNumber = None;
   u0DefaultSSLPortNumber = None;
-  sbDefaultHostname = sbDefaultHostname;
+  sbDefaultHost = sbDefaultHost;
   o0DefaultAdditionalPortNumberRange = o0DefaultAdditionalPortNumberRange;
   
   @ShowDebugOutput
   def __init__(oSelf,
     fNewConnectionHandler,
-    sbzHostname = zNotProvided, uzPortNumber = zNotProvided,
+    sbzHost = zNotProvided, uzPortNumber = zNotProvided,
     o0SSLContext = None, n0zSecureTimeoutInSeconds = zNotProvided,
   ):
-    fAssertType("sbzHostname", sbzHostname, bytes, zNotProvided);
+    fAssertType("sbzHost", sbzHost, bytes, zNotProvided);
     fAssertType("uzPortNumber", uzPortNumber, int, zNotProvided);
     if m0SSL:
       fAssertType("o0SSLContext", o0SSLContext, m0SSL.cSSLContext, None);
@@ -67,7 +67,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
           "Cannot load mSSL; o0SSLContext cannot be %s!" % repr(o0SSLContext);
     fAssertType("n0zSecureTimeoutInSeconds", n0zSecureTimeoutInSeconds, int, float, zNotProvided, None);
     oSelf.__fNewConnectionHandler = fNewConnectionHandler;
-    oSelf.__sbHostname = sbzHostname if fbIsProvided(sbzHostname) else oSelf.sbDefaultHostname;
+    oSelf.__sbHost = sbzHost if fbIsProvided(sbzHost) else oSelf.sbDefaultHost;
     oSelf.__o0SSLContext = o0SSLContext;
     oSelf.__n0zSecureTimeoutInSeconds = n0zSecureTimeoutInSeconds;
     
@@ -79,26 +79,26 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     
     oSelf.__aoPythonSockets = None;
     
-    # Resolve hostname
-    sLowerHostname = str(oSelf.__sbHostname, "ascii", "strict").lower();
+    # Resolve host
+    sLowerHost = str(oSelf.__sbHost, "ascii", "strict").lower();
     def fBindToPortNumberOnAllAddressesAndSetProperties(uPortNumber):
       try:
-        atxAddressInfo = socket.getaddrinfo(sLowerHostname, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
+        atxAddressInfo = socket.getaddrinfo(sLowerHost, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
       except Exception as oException:
         if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException(
             "Cannot bind to invalid address %s." % (
-              repr("%s:%d" % (sLowerHostname, uPortNumber)),
+              repr("%s:%d" % (sLowerHost, uPortNumber)),
             ),
-            sHostnameOrIPAddress = sLowerHostname,
-            uPortNumber = uPortNumber,
+            sbzHost = oSelf.__sbHost,
+            uzPortNumber = uPortNumber,
           );
-        elif fbExceptionMeansSocketHostnameCannotBeResolved(oException):
-          raise cTCPIPDNSUnknownHostnameException(
-            "Cannot bind to hostname %s because it cannot be resolved." % (
-              repr(sLowerHostname),
+        elif fbExceptionMeansDNSNameCannotBeResolved(oException):
+          raise cTCPIPDNSNameCannotBeResolvedException(
+            "Cannot bind to DNS name %s because it cannot be resolved." % (
+              repr(sLowerHost),
             ),
-            sHostname = sLowerHostname,
+            szbHost = oSelf.__sbHost,
           );
         else:
           raise;
@@ -114,6 +114,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
           (sIPAddress, uPortNumber, uFlowInfo, uScopeId) = txAddress; # IPv6
         else:
           continue; # Not a protocol we suport.
+        sbIPAddress = bytes(sIPAddress, "ascii", "strict");
         fShowDebugOutput("Trying to bind to %s:%d (%d/%d)" % (sIPAddress, uPortNumber, uIndex, len(atxAddressInfo)));
         try:
           oPythonSocket.bind(txAddress);
@@ -126,20 +127,22 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
               "Cannot bind to address %s because the port is not permitted." % (
                 repr("%s:%d" % (sIPAddress, uPortNumber)),
               ),
-              sHostnameOrIPAddress = sIPAddress,
-              uPortNumber = uPortNumber,
+              sbzHost = oSelf.__sbHost,
+              sbzIPAddress = sbIPAddress,
+              uzPortNumber = uPortNumber,
             );
           if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
             raise cTCPIPPortAlreadyInUseAsAcceptorException(
               "Cannot bind to address %s because the port is already in use." % (
                 repr("%s:%d" % (sIPAddress, uPortNumber)),
               ),
-              sHostnameOrIPAddress = sIPAddress,
-              uPortNumber = uPortNumber,
+              sbzHost = oSelf.__sbHost,
+              sbzIPAddress = sbIPAddress,
+              uzPortNumber = uPortNumber,
             );
           raise;
         aoPythonSockets.append(oPythonSocket);
-      # We succesfully bound to the port on each address: return sockets.
+      # We successfully bound to the port on each address: return sockets.
       oSelf.__aoPythonSockets = aoPythonSockets;
       oSelf.__uPortNumber = uPortNumber;
     # END fbBindToPortNumberAndSetProperties
@@ -172,26 +175,26 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
             break;
         else:
           raise cTCPIPNoAvailablePortsException(
-            "Cannot bind to hostname or ip address %s because no port was available." % (
-              repr(sLowerHostname),
+            "Cannot bind to host %s because no port was available." % (
+              repr(sLowerHost),
             ),
-            sHostnameOrIPAddress = sLowerHostname,
+            sbzHost = sLowerHost,
           );
     for oPythonSocket in oSelf.__aoPythonSockets:
       oPythonSocket.listen(1);
     oSelf.__oMainThread = cThread(oSelf.__fMain);
     oSelf.__oMainThread.fStart(bVital = False);
     oSelf.fAddEvents(
-      "new connection", # Fired first for both secure and nonsecure connections
-      "new nonsecure connection", # Fired for nonsecure connections only.
+      "new connection", # Fired first for both secure and non-secure connections
+      "new non-secure connection", # Fired for non-secure connections only.
       "new secure connection", # Fired after SSL negotiation has completed successfully.
       "connection cannot be secured", # Fired if SSL negotiation failed to complete successfully and before timeout.
       "terminated" # Fired when the acceptor stops accepting connections.
     );
   
   @property
-  def sbHostname(oSelf):
-    return oSelf.__sbHostname;
+  def sbHost(oSelf):
+    return oSelf.__sbHost;
   @property
   def uPortNumber(oSelf):
     return oSelf.__uPortNumber;
@@ -300,7 +303,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
       else:
         oSelf.fFireCallbacks("new secure connection", oNewConnection);
     else:
-        oSelf.fFireCallbacks("new nonsecure connection", oNewConnection);
+        oSelf.fFireCallbacks("new non-secure connection", oNewConnection);
     oSelf.fFireCallbacks("new connection", oNewConnection);
     oSelf.__fNewConnectionHandler(oSelf, oNewConnection);
   
@@ -310,7 +313,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     bTerminated = oSelf.bTerminated;
     bStopping = not bTerminated and oSelf.__bStopping;
     return [s for s in [
-      "%s:%d" % (oSelf.__sbHostname, oSelf.__uPortNumber),
+      "%s:%d" % (oSelf.__sbHost, oSelf.__uPortNumber),
       "IPs: %s" % ", ".join(str(sbIPAddress) for sbIPAddress in oSelf.asbIPAddresses),
       "secure" if oSelf.__o0SSLContext is not None else None,
       "terminated" if bTerminated else

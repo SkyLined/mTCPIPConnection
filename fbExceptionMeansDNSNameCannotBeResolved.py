@@ -1,4 +1,4 @@
 import socket;
 
-def fbExceptionMeansSocketHostnameCannotBeResolved(oException):
+def fbExceptionMeansDNSNameCannotBeResolved(oException):
   return isinstance(oException, socket.gaierror);

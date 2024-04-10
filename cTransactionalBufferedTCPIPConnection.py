@@ -9,8 +9,7 @@ except ModuleNotFoundError as oException:
   fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
 from mMultiThreading import cLock;
-from mNotProvided import \
-  fAssertType;
+from mNotProvided import fAssertType;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
 from .mExceptions import \
@@ -159,7 +158,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
           oSelf.fsGetEndPointsAndDirection(),
           sWhile,
         ),
-        oConnection = oSelf,
+        ozConnection = oSelf,
       );
     oSelf.__oPropertiesLock.fAcquire();
     try:
@@ -174,7 +173,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
             oSelf.__s0WaitingUntilState,
             sWhile,
           ),
-          oConnection = oSelf,
+          ozConnection = oSelf,
         );
       if not oSelf.__oTransactionLock.fbAcquire():
         # Somebody has already started a transaction on this connection.
@@ -184,7 +183,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
             oSelf.fsGetEndPointsAndDirection(),
             sWhile,
           ),
-          oConnection = oSelf,
+          ozConnection = oSelf,
         );
       fShowDebugOutput(oSelf, "Transaction lock acquired.");
       # A transaction can be started to disconnect the connection after it has
@@ -222,7 +221,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
           oSelf.fsGetEndPointsAndDirection(),
           sWhile,
         ),
-        oConnection = oSelf,
+        ozConnection = oSelf,
       );
     oSelf.fFireCallbacks("transaction ended");
     oSelf.__oPropertiesLock.fAcquire();
@@ -278,7 +277,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
             oSelf.fsGetEndPointsAndDirection(),
             sWaitingUntilState,
           ),
-          oConnection = oSelf,
+          ozConnection = oSelf,
         );
       fShowDebugOutput(oSelf, "Started transaction to start waiting until %s" % sWaitingUntilState);
       try:
@@ -291,7 +290,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
               oSelf.__s0WaitingUntilState,
               sWaitingUntilState,
             ),
-            oConnection = oSelf,
+            ozConnection = oSelf,
           );
       finally:
         # We are not starting a transaction yet, so do not keep this lock.
@@ -396,7 +395,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
           oSelf.fsGetEndPointsAndDirection(),
           sWaitingUntilState,
         ),
-        oConnection = oSelf,
+        ozConnection = oSelf,
       );
     oSelf.__fEndWaitingUntilSomeState(
       sWaitingUntilState,

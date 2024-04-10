@@ -55,7 +55,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSSLContext,
     *,
     n0zTimeoutInSeconds = zNotProvided,
-    bzCheckHostname = zNotProvided,
+    bzCheckHost = zNotProvided,
   ):
     fAssertType("n0zTimeoutInSeconds", n0zTimeoutInSeconds, int, float, zNotProvided, None);
     assert len(oSelf.__sbReadBuffer) == 0, \
@@ -65,7 +65,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     return super(cBufferedTCPIPConnection, oSelf).fSecure(
       oSSLContext,
       n0zTimeoutInSeconds = n0zTimeoutInSeconds,
-      bzCheckHostname = bzCheckHostname,
+      bzCheckHost = bzCheckHost,
     );
   
   @property

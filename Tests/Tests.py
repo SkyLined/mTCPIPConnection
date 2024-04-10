@@ -14,6 +14,7 @@ except ModuleNotFoundError as oException:
   m0DebugOutput = None;
 
 guExitCodeInternalError = 1; # Use standard value;
+
 try:
   try:
     from mConsole import oConsole;
@@ -51,7 +52,7 @@ try:
       raise;
     m0SSL = None;
   
-  sbTestHostname = b"localhost";
+  sbTestHost = b"localhost";
   HEADER = 0xFF0A;
   DELETE_FILE = 0xFF0C;
   DELETE_FOLDER = 0xFF04;
@@ -95,12 +96,12 @@ try:
         oConsole.fOutput(HEADER, "\u2500\u2500\u2500\u2500 Delete Certificate Authority folder... ", sPadding = "\u2500");
         oCertificateAuthority.fDeleteCacheFolder(fShowDeleteOrOverwriteFileOrFolder);
     
-    sTestHostname = str(sbTestHostname, "ascii", "strict");
-    oCertificateAuthority.foGenerateServersideSSLContextForHostname(sbTestHostname);
+    sTestHost = str(sbTestHost, "ascii", "strict");
+    oCertificateAuthority.foGenerateServersideSSLContextForHost(sbTestHost);
     oCertificateStore = m0SSL.cCertificateStore();
     oCertificateStore.fAddCertificateAuthority(oCertificateAuthority);
-    o0ServerSSLContext = oCertificateStore.foGetServersideSSLContextForHostname(sbTestHostname);
-    o0ClientSSLContext = oCertificateStore.foGetClientsideSSLContextForHostname(sbTestHostname);
+    o0ServerSSLContext = oCertificateStore.foGetServersideSSLContextForHost(sbTestHost);
+    o0ClientSSLContext = oCertificateStore.foGetClientsideSSLContextForHost(sbTestHost);
     oConsole.fOutput("=== SSL Contexts ", sPadding = "=");
     oConsole.fOutput("o0ServerSSLContext = ", repr(o0ServerSSLContext));
     oConsole.fOutput("o0ClientSSLContext = ", repr(o0ClientSSLContext));
@@ -129,7 +130,6 @@ try:
     if not bQuick:
       oConsole.fOutput(HEADER, "\u2500\u2500\u2500\u2500 Delete Certificate Authority folder... ", sPadding = "\u2500");
       oCertificateAuthority.fDeleteCacheFolder(fShowDeleteOrOverwriteFileOrFolder);
-  
 except Exception as oException:
   if m0DebugOutput:
     m0DebugOutput.fTerminateWithException(oException, guExitCodeInternalError, bShowStacksForAllThread = True);
