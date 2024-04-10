@@ -1,4 +1,4 @@
-import os, socket;
+import os;
 
 def fbExceptionMeansPortNotPermitted(oException):
   return (
