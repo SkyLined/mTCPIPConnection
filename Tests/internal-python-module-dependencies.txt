@@ -28,4 +28,3 @@ threading
 token
 tokenize
 traceback
-warnings
