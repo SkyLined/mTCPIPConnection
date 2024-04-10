@@ -1,3 +1,5 @@
+import gc;
+
 from mTCPIPConnection import \
     cBufferedTCPIPConnection, \
     cTCPIPConnection, \
