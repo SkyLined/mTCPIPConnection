@@ -462,6 +462,15 @@ class cTCPIPConnection(cWithCallbacks):
   def bStopping(oSelf):
     return oSelf.__bStopping or not oSelf.bConnected;
   
+  @property
+  def bTerminated(oSelf):
+    return not oSelf.bConnected;
+  
+  # Check to make sure the connection is terminated before being discarded.
+  def __del__(oSelf):
+    assert oSelf.bTerminated, \
+        "%s was not terminated before being deleted!" % oSelf;
+  
   @ShowDebugOutput
   def fStop(oSelf):
     if oSelf.__bStopping:
@@ -592,10 +601,6 @@ class cTCPIPConnection(cWithCallbacks):
     if oSelf.__oPythonSocket.fileno() == -1:
       oSelf.__fHandleDisconnect();
     return oSelf.__oTerminatedLock.bLocked;
-  
-  @property
-  def bTerminated(oSelf):
-    return not oSelf.bConnected;
   
   def fThrowExceptionIfShutdownOrDisconnected(oSelf):
     oSelf.__fThrowDisconnectedOrShutdownExceptionIfApplicableWhile(
