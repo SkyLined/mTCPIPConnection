@@ -83,7 +83,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     sLowerHost = str(oSelf.__sbHost, "ascii", "strict").lower();
     def fBindToPortNumberOnAllAddressesAndSetProperties(uPortNumber):
       try:
-        atxAddressInfo = socket.getaddrinfo(sLowerHost, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME)
+        atxAddressInfo = socket.getaddrinfo(sLowerHost, uPortNumber, type = socket.SOCK_STREAM, flags = socket.AI_CANONNAME);
       except Exception as oException:
         if fbExceptionMeansSocketAddressIsInvalid(oException):
           raise cTCPIPInvalidAddressException(
@@ -104,44 +104,48 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
           raise;
       uIndex = 0;
       aoPythonSockets = [];
-      for (iFamily, iType, iProto, sCanonicalName, txAddress) in atxAddressInfo:
-        uIndex += 1;
-        oPythonSocket = socket.socket(iFamily, iType, iProto);
-        oPythonSocket.settimeout(None);
-        if iFamily == socket.AF_INET:
-          (sIPAddress, uPortNumber) = txAddress; # IPv4
-        elif iFamily == socket.AF_INET6:
-          (sIPAddress, uPortNumber, uFlowInfo, uScopeId) = txAddress; # IPv6
-        else:
-          continue; # Not a protocol we suport.
-        sbIPAddress = bytes(sIPAddress, "ascii", "strict");
-        fShowDebugOutput("Trying to bind to %s:%d (%d/%d)" % (sIPAddress, uPortNumber, uIndex, len(atxAddressInfo)));
-        try:
-          oPythonSocket.bind(txAddress);
-        except Exception as oException:
-          # We could not bind to at least one address (or port): close sockets and return None.
-          for oPythonSocket in aoPythonSockets:
-            oPythonSocket.close();
-          if fbExceptionMeansPortNotPermitted(oException):
-            raise cTCPIPPortNotPermittedException(
-              "Cannot bind to address %s because the port is not permitted." % (
-                repr("%s:%d" % (sIPAddress, uPortNumber)),
-              ),
-              sbzHost = oSelf.__sbHost,
-              sbzIPAddress = sbIPAddress,
-              uzPortNumber = uPortNumber,
-            );
-          if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
-            raise cTCPIPPortAlreadyInUseAsAcceptorException(
-              "Cannot bind to address %s because the port is already in use." % (
-                repr("%s:%d" % (sIPAddress, uPortNumber)),
-              ),
-              sbzHost = oSelf.__sbHost,
-              sbzIPAddress = sbIPAddress,
-              uzPortNumber = uPortNumber,
-            );
-          raise;
-        aoPythonSockets.append(oPythonSocket);
+      try:
+        for (iFamily, iType, iProto, sCanonicalName, txAddress) in atxAddressInfo:
+          uIndex += 1;
+          oPythonSocket = socket.socket(iFamily, iType, iProto);
+          aoPythonSockets.append(oPythonSocket);
+          oPythonSocket.settimeout(None);
+          if iFamily == socket.AF_INET:
+            (sIPAddress, uPortNumber) = txAddress; # IPv4
+          elif iFamily == socket.AF_INET6:
+            (sIPAddress, uPortNumber, uFlowInfo, uScopeId) = txAddress; # IPv6
+          else:
+            continue; # Not a protocol we support.
+          sbIPAddress = bytes(sIPAddress, "ascii", "strict");
+          fShowDebugOutput("Trying to bind to %s:%d (%d/%d)" % (sIPAddress, uPortNumber, uIndex, len(atxAddressInfo)));
+          try:
+            oPythonSocket.bind(txAddress);
+          except Exception as oException:
+            # Raise specific errors if possible:
+            if fbExceptionMeansPortNotPermitted(oException):
+              raise cTCPIPPortNotPermittedException(
+                "Cannot bind to address %s because the port is not permitted." % (
+                  repr("%s:%d" % (sIPAddress, uPortNumber)),
+                ),
+                sbzHost = oSelf.__sbHost,
+                sbzIPAddress = sbIPAddress,
+                uzPortNumber = uPortNumber,
+              );
+            if fbExceptionMeansSocketAlreadyInUseAsAcceptor(oException):
+              raise cTCPIPPortAlreadyInUseAsAcceptorException(
+                "Cannot bind to address %s because the port is already in use." % (
+                  repr("%s:%d" % (sIPAddress, uPortNumber)),
+                ),
+                sbzHost = oSelf.__sbHost,
+                sbzIPAddress = sbIPAddress,
+                uzPortNumber = uPortNumber,
+              );
+            raise;
+      except:
+        # In case of an exception, make sure we close all sockets we opened.
+        for oPythonSocket in aoPythonSockets:
+          oPythonSocket.close();
+        raise;
       # We successfully bound to the port on each address: return sockets.
       oSelf.__aoPythonSockets = aoPythonSockets;
       oSelf.__uPortNumber = uPortNumber;
