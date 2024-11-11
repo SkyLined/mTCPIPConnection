@@ -189,11 +189,11 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oSelf.__oMainThread = cThread(oSelf.__fMain);
     oSelf.__oMainThread.fStart(bVital = False);
     oSelf.fAddEvents(
-      "new connection", # Fired first for both secure and non-secure connections
-      "new non-secure connection", # Fired for non-secure connections only.
-      "new secure connection", # Fired after SSL negotiation has completed successfully.
-      "connection cannot be secured", # Fired if SSL negotiation failed to complete successfully and before timeout.
-      "terminated" # Fired when the acceptor stops accepting connections.
+      "connection received",
+      
+      "securing connection", "securing connection failed", "connection secured",
+      
+      "terminated",
     );
   
   @property
@@ -277,7 +277,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
         oSelf.__fHandleNewConnectedPythonSocket(oConnectedPythonSocket);
         fShowDebugOutput("Waiting to accept next connection...");
       else:
-        # everything successfull: loop
+        # everything successful: loop
         continue;
       # one server socket is broken; stop.
       break;
@@ -287,28 +287,23 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   
   def __fHandleNewConnectedPythonSocket(oSelf, oConnectedPythonSocket):
     oNewConnection = oSelf.foCreateNewConnectionForPythonSocket(oConnectedPythonSocket);
+    oSelf.fFireCallbacks("connection received", oNewConnection);
     if oSelf.__o0SSLContext:
+      oSelf.fFireCallbacks("securing connection", oNewConnection, oSelf.__o0SSLContext);
       try:
         oNewConnection.fSecure(oSelf.__o0SSLContext, n0zTimeoutInSeconds = oSelf.__n0zSecureTimeoutInSeconds);
       except Exception as oException:
+        oSelf.fFireCallbacks("securing connection failed", oNewConnection, oSelf.__o0SSLContext, oException);
         if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
           fShowDebugOutput("SSL exception while securing connection.");
-          sCause = "SSL error";
         elif isinstance(oException, cTCPIPConnectionShutdownException):
           fShowDebugOutput("Shut down while securing connection.");
-          sCause = "shutdown";
         elif isinstance(oException, cTCPIPConnectionDisconnectedException):
           fShowDebugOutput("Disconnected while securing connection.");
-          sCause = "disconnected";
         else:
           raise;
-        oSelf.fFireCallbacks("connection cannot be secured", oNewConnection, sCause);
         return;
-      else:
-        oSelf.fFireCallbacks("new secure connection", oNewConnection);
-    else:
-        oSelf.fFireCallbacks("new non-secure connection", oNewConnection);
-    oSelf.fFireCallbacks("new connection", oNewConnection);
+      oSelf.fFireCallbacks("connection secured", oNewConnection, oSelf.__o0SSLContext);
     oSelf.__fNewConnectionHandler(oSelf, oNewConnection);
   
   def fasGetDetails(oSelf):

@@ -78,6 +78,10 @@ class cTCPIPConnection(cWithCallbacks):
     f0HostnameResolvedToIPAddressCallback = None,
     f0ConnectingToIPAddressCallback = None,
     f0ConnectingToIPAddressFailedCallback = None,
+    f0ConnectedToIPAddressCallback = None,
+    f0SecuringConnectionCallback = None,
+    f0SecuringConnectionFailedCallback = None,
+    f0ConnectionSecuredCallback = None,
   ):
     fAssertType("sbHost", sbHost, bytes);
     fAssertType("uPortNumber", uPortNumber, int);
@@ -166,8 +170,8 @@ class cTCPIPConnection(cWithCallbacks):
       if f0ConnectingToIPAddressCallback:
         f0ConnectingToIPAddressCallback(
           sbHost = sbHost,
-          sbIPAddress = sbIPAddress,
           uPortNumber = uPortNumber,
+          sbIPAddress = sbIPAddress,
         );
       oPythonSocket.settimeout(n0ConnectTimeoutInSeconds);
       try:
@@ -233,8 +237,8 @@ class cTCPIPConnection(cWithCallbacks):
           f0ConnectingToIPAddressFailedCallback(
             oException = oException,
             sbHost = sbHost,
-            sbIPAddress = sbIPAddress,
             uPortNumber = uPortNumber,
+            sbIPAddress = sbIPAddress,
           );
         # We will ignore this exception and try the next address unless there are no more addresses.
         if bIsLastAddressInfo:
@@ -246,12 +250,49 @@ class cTCPIPConnection(cWithCallbacks):
         sbzRemoteHost = sbHost,
         bCreatedLocally = True,
       );
-      if o0SSLContext:
-        oConnection.fSecure(
-          oSSLContext = o0SSLContext,
-          n0zTimeoutInSeconds = n0zSecureTimeoutInSeconds,
-          bzCheckHost = bzCheckHost,
+      if f0ConnectedToIPAddressCallback:
+        f0ConnectedToIPAddressCallback(
+            sbHost = sbHost,
+            uPortNumber = uPortNumber,
+            sbIPAddress = sbIPAddress,
+            oConnection = oConnection,
         );
+      if o0SSLContext:
+        assert m0SSL, \
+            "mSSL is not available";
+        if f0SecuringConnectionCallback:
+          f0SecuringConnectionCallback(
+            sbHost = sbHost,
+            uPortNumber = uPortNumber,
+            sbIPAddress = sbIPAddress,
+            oConnection = oConnection,
+            oSSLContext = o0SSLContext,
+          );
+        try:
+          oConnection.fSecure(
+            oSSLContext = o0SSLContext,
+            n0zTimeoutInSeconds = n0zSecureTimeoutInSeconds,
+            bzCheckHost = bzCheckHost,
+          );
+        except m0SSL.mExceptions.cSSLException as oException:
+          if f0SecuringConnectionFailedCallback:
+            f0SecuringConnectionFailedCallback(
+              oException = oException,
+              sbHost = sbHost,
+              uPortNumber = uPortNumber,
+              sbIPAddress = sbIPAddress,
+              oConnection = oConnection,
+              oSSLContext = o0SSLContext,
+            );
+          raise;
+        if f0ConnectionSecuredCallback:
+          f0ConnectionSecuredCallback(
+            sbHost = sbHost,
+            uPortNumber = uPortNumber,
+            sbIPAddress = sbIPAddress,
+            oConnection = oConnection,
+            oSSLContext = o0SSLContext,
+          );
       return oConnection;
     raise AssertionError("socket.getaddrinfo(...) return an empty list!?");
     
