@@ -55,8 +55,11 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   @ShowDebugOutput
   def __init__(oSelf,
     fNewConnectionHandler,
-    sbzHost = zNotProvided, uzPortNumber = zNotProvided,
-    o0SSLContext = None, n0zSecureTimeoutInSeconds = zNotProvided,
+    sbzHost = zNotProvided,
+    uzPortNumber = zNotProvided,
+    o0SSLContext = None,
+    n0zSecureTimeoutInSeconds = zNotProvided,
+    nSendDelayPerByteInSeconds = 0,
   ):
     fAssertType("sbzHost", sbzHost, bytes, zNotProvided);
     fAssertType("uzPortNumber", uzPortNumber, int, zNotProvided);
@@ -70,6 +73,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oSelf.__sbHost = sbzHost if fbIsProvided(sbzHost) else oSelf.sbDefaultHost;
     oSelf.__o0SSLContext = o0SSLContext;
     oSelf.__n0zSecureTimeoutInSeconds = n0zSecureTimeoutInSeconds;
+    oSelf.nSendDelayPerByteInSeconds = nSendDelayPerByteInSeconds;
     
     oSelf.__bStopping = False;
     oSelf.__oTerminatedLock = cLock(
@@ -248,7 +252,11 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
   def foCreateNewConnectionForPythonSocket(oSelf, oPythonSocket):
-    return cTCPIPConnection(oPythonSocket, bCreatedLocally = False);
+    return cTCPIPConnection(
+      oPythonSocket,
+      bCreatedLocally = False,
+      nSendDelayPerByteInSeconds = oSelf.nSendDelayPerByteInSeconds,
+    );
   
   @ShowDebugOutput
   def __fMain(oSelf):

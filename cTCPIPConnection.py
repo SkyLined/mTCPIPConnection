@@ -72,6 +72,7 @@ class cTCPIPConnection(cWithCallbacks):
     o0SSLContext = None,
     bzCheckHost = zNotProvided,
     n0zSecureTimeoutInSeconds = zNotProvided,
+    nSendDelayPerByteInSeconds = 0,
     f0HostInvalidCallback = None,
     f0ResolvingHostnameCallback = None,
     f0ResolvingHostnameFailedCallback = None,
@@ -249,6 +250,7 @@ class cTCPIPConnection(cWithCallbacks):
         oPythonSocket,
         sbzRemoteHost = sbHost,
         bCreatedLocally = True,
+        nSendDelayPerByteInSeconds = nSendDelayPerByteInSeconds,
       );
       if f0ConnectedToIPAddressCallback:
         f0ConnectedToIPAddressCallback(
@@ -337,6 +339,7 @@ class cTCPIPConnection(cWithCallbacks):
     o0SSLContext = None,
     sbzRemoteHost = zNotProvided,
     bCreatedLocally = False,
+    nSendDelayPerByteInSeconds = 0,
   ):
     fAssertType("sbzRemoteHost", sbzRemoteHost, bytes, zNotProvided);
     # The initial python socket is not secure. We can "wrap" the socket with SSL
@@ -385,6 +388,7 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.uRemotePortNumber = oSelf.txRemoteAddress[1];
     oSelf.sbRemoteHost = sbzRemoteHost if fbIsProvided(sbzRemoteHost) else bytes(oSelf.txRemoteAddress[0], "ascii", "strict");
     oSelf.sbRemoteAddress = fsbAddressFromHostAndPort(oSelf.sbRemoteHost, oSelf.uRemotePortNumber);
+    oSelf.nSendDelayPerByteInSeconds = nSendDelayPerByteInSeconds;
     
     oSelf.__uTerminatedCallbackPostponeCounter = 0;
     oSelf.__bTerminatedCallbackPostponed = False;
@@ -889,8 +893,15 @@ class cTCPIPConnection(cWithCallbacks):
           ozConnection = oSelf,
         );
       oSelf.__oPythonSocket.settimeout(0);
+      if oSelf.nSendDelayPerByteInSeconds > 0:
+        # sleep first
+        time.sleep(oSelf.nSendDelayPerByteInSeconds);
+        # then send only a single byte
+        sbBytesToWrite = sbBytes[:1];
+      else:
+        sbBytesToWrite = sbBytes;
       try:
-        uNumberOfBytesWrittenInSendCall = oSelf.__oPythonSocket.send(sbBytes);
+        uNumberOfBytesWrittenInSendCall = oSelf.__oPythonSocket.send(sbBytesToWrite);
       except Exception as oException:
         fShowDebugOutput(oSelf, "Exception during `send()`: %s(%s)" % (oException.__class__.__name__, oException));
         if fbExceptionMeansSocketShutdown(oException):
