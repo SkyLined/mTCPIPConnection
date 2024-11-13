@@ -144,26 +144,27 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     oSelf.__sbReadBuffer = b"";
     return sbBytes + super(cBufferedTCPIPConnection, oSelf).fsbReadBytesUntilDisconnected(*txArguments, **dxArguments);
   
-  def __fReadBytesIntoBuffer(oSelf, uMinNumberOfBytes, n0EndTime, sWhile):
+  def __fReadBytesIntoBuffer(oSelf, uMinNumberOfBytes, n0EndTime, n0TimeoutInSeconds, sWhile):
     # Reads data until at least the requested number of bytes is in the buffer.
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns when the requested number of bytes is in the buffer.
     while len(oSelf.__sbReadBuffer) < uMinNumberOfBytes:
-      if n0EndTime:
-        n0TimeoutInSeconds = n0EndTime - time.time();
-        if n0TimeoutInSeconds <= 0:
+      if n0TimeoutInSeconds:
+        n0RemainingWaitTimeInSeconds = n0EndTime - time.time();
+        if n0RemainingWaitTimeInSeconds <= 0:
           raise cTCPIPDataTimeoutException(
             "Timeout on connection %s while %s after %s seconds." % (
               oSelf.fsGetEndPointsAndDirection(),
               sWhile,
               n0TimeoutInSeconds,
             ),
-            oConnection = oSelf,
+            ozConnection = oSelf,
+            nzTimeoutInSeconds = n0TimeoutInSeconds, # should never be None in this code path.
           );
       else:
-        n0TimeoutInSeconds = None;
+        n0RemainingWaitTimeInSeconds = None;
       super(cBufferedTCPIPConnection, oSelf).fWaitUntilBytesAreAvailableForReading(
-        n0WaitTimeoutInSeconds = n0TimeoutInSeconds,
+        n0WaitTimeoutInSeconds = n0RemainingWaitTimeInSeconds,
       );
       sbBytesRead = super(cBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes();
       oSelf.__sbReadBuffer += sbBytesRead;
@@ -180,7 +181,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     # Returns the requested number of bytes, which are removed from the buffer.
     # Can throw a timeout, shutdown or disconnected exception.
     n0EndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds else None;
-    oSelf.__fReadBytesIntoBuffer(uNumberOfBytes, n0EndTime, "reading bytes into buffer");
+    oSelf.__fReadBytesIntoBuffer(uNumberOfBytes, n0EndTime, n0TimeoutInSeconds, "reading bytes into buffer");
     sbBytes = oSelf.__sbReadBuffer[:uNumberOfBytes];
     oSelf.__sbReadBuffer = oSelf.__sbReadBuffer[uNumberOfBytes:];
     return sbBytes;
@@ -205,7 +206,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     while 1:
       # We need to read enough bytes to be able to start another search (i.e. one).
       uMinNumberOfBytesNeededInBuffer = uNextFindStartIndex + uMarkerSize;
-      oSelf.__fReadBytesIntoBuffer(uMinNumberOfBytesNeededInBuffer, n0EndTime, "reading bytes into buffer until a marker is found");
+      oSelf.__fReadBytesIntoBuffer(uMinNumberOfBytesNeededInBuffer, n0EndTime, n0TimeoutInSeconds, "reading bytes into buffer until a marker is found");
       # If the marker can be found stop looking.
       uStartIndex = oSelf.__sbReadBuffer.find(sbMarker, uNextFindStartIndex, u0MaxNumberOfBytes);
       if uStartIndex != -1:
