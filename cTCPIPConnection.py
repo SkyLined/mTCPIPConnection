@@ -249,6 +249,7 @@ class cTCPIPConnection(cWithCallbacks):
       oConnection = cClass(
         oPythonSocket,
         sbzRemoteHost = sbHost,
+        sbzRemoteIPAddress = sbIPAddress,
         bCreatedLocally = True,
         nSendDelayPerByteInSeconds = nSendDelayPerByteInSeconds,
       );
@@ -338,6 +339,7 @@ class cTCPIPConnection(cWithCallbacks):
     o0SecurePythonSocket = None,
     o0SSLContext = None,
     sbzRemoteHost = zNotProvided,
+    sbzRemoteIPAddress = zNotProvided,
     bCreatedLocally = False,
     nSendDelayPerByteInSeconds = 0,
   ):
@@ -385,8 +387,9 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.sbLocalAddress = fsbAddressFromHostAndPort(oSelf.sbLocalHost, oSelf.uLocalPortNumber);
     
     oSelf.txRemoteAddress = oSelf.__oPythonSocket.getpeername();
-    oSelf.uRemotePortNumber = oSelf.txRemoteAddress[1];
     oSelf.sbRemoteHost = sbzRemoteHost if fbIsProvided(sbzRemoteHost) else bytes(oSelf.txRemoteAddress[0], "ascii", "strict");
+    oSelf.sbRemoteIPAddress = sbzRemoteIPAddress if fbIsProvided(sbzRemoteIPAddress) else bytes(oPythonSocket.getpeername()[0], "ascii", "strict");
+    oSelf.uRemotePortNumber = oSelf.txRemoteAddress[1];
     oSelf.sbRemoteAddress = fsbAddressFromHostAndPort(oSelf.sbRemoteHost, oSelf.uRemotePortNumber);
     oSelf.nSendDelayPerByteInSeconds = nSendDelayPerByteInSeconds;
     
@@ -394,10 +397,15 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.__bTerminatedCallbackPostponed = False;
     
     oSelf.fAddEvents(
-      "bytes read",
-      "bytes written",
+      "read bytes",
+      "wrote bytes",
+      
+      "shutdown for reading",
+      "shutdown for writing",
+      "shutdown",
+      
       "disconnected",
-      "shutdown for reading", "shutdown for writing", "shutdown",
+      
       "terminated"
     );
   
@@ -739,7 +747,7 @@ class cTCPIPConnection(cWithCallbacks):
     # Can throw a timeout, shutdown or disconnected exception.
     # Returns once there are any bytes that can currently to be read or the
     # socket was disconnected; the later may not result in an exception being
-    # raised! It is currently not possible to determine if the connecton was
+    # raised! It is currently not possible to determine if the connection was
     # closed without attempting to read at least one byte from the socket.
     # After calling this function, the caller should try to read bytes to
     # determine if there really are bytes available or if the connection was
@@ -818,7 +826,7 @@ class cTCPIPConnection(cWithCallbacks):
         fShowDebugOutput(oSelf, "No bytes read indicates the socket was shutdown and/or disconnected.");
         oSelf.__fHandleShutdownForReading(sWhile);
         break;
-      oSelf.fFireCallbacks("bytes read", sbBytesRead);
+      oSelf.fFireCallbacks("read bytes", sbBytes = sbBytesRead);
       sbAvailableBytes += sbBytesRead;
     return sbAvailableBytes;
   
@@ -918,7 +926,7 @@ class cTCPIPConnection(cWithCallbacks):
           bMustThrowException = True,
         );
       fShowDebugOutput(oSelf, "%d bytes written." % uNumberOfBytesWrittenInSendCall);
-      oSelf.fFireCallbacks("bytes written", sbBytes[:uNumberOfBytesWrittenInSendCall]);
+      oSelf.fFireCallbacks("wrote bytes", sbBytes = sbBytes[:uNumberOfBytesWrittenInSendCall]);
       sbBytes = sbBytes[uNumberOfBytesWrittenInSendCall:];
       uTotalNumberOfBytesWritten += uNumberOfBytesWrittenInSendCall;
   

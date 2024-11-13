@@ -193,9 +193,12 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
     oSelf.__oMainThread = cThread(oSelf.__fMain);
     oSelf.__oMainThread.fStart(bVital = False);
     oSelf.fAddEvents(
-      "connection received",
+      "received connection from client",
+      "terminated connection from client",
       
-      "securing connection", "securing connection failed", "connection secured",
+      "securing connection from client",
+      "securing connection from client failed",
+      "secured connection from client",
       
       "terminated",
     );
@@ -295,13 +298,17 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   
   def __fHandleNewConnectedPythonSocket(oSelf, oConnectedPythonSocket):
     oNewConnection = oSelf.foCreateNewConnectionForPythonSocket(oConnectedPythonSocket);
-    oSelf.fFireCallbacks("connection received", oNewConnection);
+    oSelf.fFireCallbacks("received connection from client", oConnection = oNewConnection);
+    oNewConnection.fAddCallback("terminated", lambda oConnection: oSelf.fFireCallbacks(
+      "terminated connection from client",
+      oConnection = oConnection,
+    ));
     if oSelf.__o0SSLContext:
-      oSelf.fFireCallbacks("securing connection", oNewConnection, oSelf.__o0SSLContext);
+      oSelf.fFireCallbacks("securing connection from client", oConnection = oNewConnection, oSSLContext = oSelf.__o0SSLContext);
       try:
         oNewConnection.fSecure(oSelf.__o0SSLContext, n0zTimeoutInSeconds = oSelf.__n0zSecureTimeoutInSeconds);
       except Exception as oException:
-        oSelf.fFireCallbacks("securing connection failed", oNewConnection, oSelf.__o0SSLContext, oException);
+        oSelf.fFireCallbacks("securing connection failed", oConnection = oNewConnection, oSSLContext = oSelf.__o0SSLContext, oException = oException);
         if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
           fShowDebugOutput("SSL exception while securing connection.");
         elif isinstance(oException, cTCPIPConnectionShutdownException):
@@ -311,7 +318,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
         else:
           raise;
         return;
-      oSelf.fFireCallbacks("connection secured", oNewConnection, oSelf.__o0SSLContext);
+      oSelf.fFireCallbacks("secured connection from client", oConnection = oNewConnection, oSSLContext  = oSelf.__o0SSLContext);
     oSelf.__fNewConnectionHandler(oSelf, oNewConnection);
   
   def fasGetDetails(oSelf):
