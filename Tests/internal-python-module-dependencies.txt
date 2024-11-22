@@ -28,3 +28,4 @@ threading
 token
 tokenize
 traceback
+weakref
