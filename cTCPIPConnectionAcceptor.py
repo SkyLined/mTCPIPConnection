@@ -308,7 +308,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
       try:
         oNewConnection.fSecure(oSelf.__o0SSLContext, n0zTimeoutInSeconds = oSelf.__n0zSecureTimeoutInSeconds);
       except Exception as oException:
-        oSelf.fFireCallbacks("securing connection failed", oConnection = oNewConnection, oSSLContext = oSelf.__o0SSLContext, oException = oException);
+        oSelf.fFireCallbacks("securing connection from client failed", oConnection = oNewConnection, oSSLContext = oSelf.__o0SSLContext, oException = oException);
         if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
           fShowDebugOutput("SSL exception while securing connection.");
         elif isinstance(oException, cTCPIPConnectionShutdownException):
