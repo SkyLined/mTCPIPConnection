@@ -84,10 +84,13 @@ def fRunTestsOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
 
 def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLContext, o0ServerSSLContext, sName, ddxTest):
   oConsole.fOutput(
-    "*** ", INFO, sName, NORMAL,
-    " test for ", INFO, cConnectionClass.__name__, " secure connection" if o0ClientSSLContext else "",
-    NORMAL, " ",
-    sPadding = "*"
+    "┌──[ ",
+    INFO, sName,
+    NORMAL, " test using ", INFO, cConnectionClass.__name__,
+    NORMAL, " over a", "" if o0ClientSSLContext else "n", " ",
+    INFO, "" if o0ClientSSLContext else "in", "secure",
+    NORMAL, " connection ]",
+    sPadding = "─"
   );
   sb0TestHost = ddxTest.get("sbHost");
   if sb0TestHost:
@@ -111,7 +114,7 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
   o0Connection = None;
   try:
     # Connect
-    oConsole.fOutput("* ", sName, " test client: connecting for %f seconds to server at %s:%d..." % (gnConnectTimeoutInSeconds, sbTestHost, uTestPortNumber));
+    oConsole.fOutput("│ ", sName, " test client: connecting for %f seconds to server at %s:%d..." % (gnConnectTimeoutInSeconds, sbTestHost, uTestPortNumber));
     o0Connection = cConnectionClass.foConnectTo(
       sbTestHost,
       uTestPortNumber,
@@ -123,12 +126,12 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
     bTransactional = hasattr(o0Connection, "fStartTransaction");
     # Start transaction if applicable
     if bTransactional:
-      oConsole.fOutput("* ", sName, " test client: starting %f second transaction..." % (gnTransactionTimeoutInSeconds,));
+      oConsole.fOutput("│ ", sName, " test client: starting %f second transaction..." % (gnTransactionTimeoutInSeconds,));
       o0Connection.fStartTransaction(n0TimeoutInSeconds = gnTransactionTimeoutInSeconds);
     # Send request if applicable
     sb0RequestData = ddxTest.get("sbRequestData");
     if sb0RequestData is not None:
-      oConsole.fOutput("* ", sName, " test client: writing ", str(len(sb0RequestData)), " bytes data...", );
+      oConsole.fOutput("│ ", sName, " test client: writing ", str(len(sb0RequestData)), " bytes data...", );
       o0Connection.fWriteBytes(sb0RequestData);
     # Read response if applicable
     sb0ExpectedResponseData = ddxTest.get("sbExpectedResponseData");
@@ -145,56 +148,57 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
       else:
         sbReceivedData = b"";
         while len(sbReceivedData) < len(sb0ExpectedResponseData):
-          oConsole.fOutput("* ", sName, " test client: waiting %f seconds until bytes are available for reading..." % (gnWaitForDataTimeoutInSeconds,));
+          oConsole.fOutput("│ ", sName, " test client: waiting %f seconds until bytes are available for reading..." % (gnWaitForDataTimeoutInSeconds,));
           o0Connection.fWaitUntilBytesAreAvailableForReading(
             n0WaitTimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
           );
-          oConsole.fOutput("* ", sName, " test client: reading bytes...");
+          oConsole.fOutput("│ ", sName, " test client: reading bytes...");
           sbReceivedData += o0Connection.fsbReadAvailableBytes();
       assert sbReceivedData == sb0ExpectedResponseData, \
           "Expected %s, got %s" % (repr(sb0ExpectedResponseData), repr(sbReceivedData));
   except Exception as oException:
     if oException.__class__ is c0ExpectedExceptionClass:
-      oConsole.fOutput(OK, "+ Got expected exception: ", oException.__class__.__name__, ": ", str(oException));
+      oConsole.fOutput("│ ", OK, "+", NORMAL, " Got expected exception: ", oException.__class__.__name__, ": ", str(oException));
     elif oException.__class__ in ac0AcceptableExceptionClasses:
-      oConsole.fOutput(WARNING, "~ Got acceptable exception: ", oException.__class__.__name__, ": ", str(oException));
-      oConsole.fOutput("  Expected exception: ", c0ExpectedExceptionClass.__name__);
+      oConsole.fOutput("│ ", WARNING, "~", NORMAL, " Got acceptable exception: ", oException.__class__.__name__, ": ", str(oException));
+      oConsole.fOutput("│    Expected exception: ", c0ExpectedExceptionClass.__name__);
     else:
-      oConsole.fOutput(ERROR, "- Unexpected exception: %s(%s)" % (oException.__class__.__name__, oException));
+      oConsole.fOutput("│ ", ERROR, "-", NORMAL, " Unexpected exception: %s(%s)" % (oException.__class__.__name__, oException));
       if c0ExpectedExceptionClass:
-        oConsole.fOutput("  Expected exceptions: %s" % (c0ExpectedExceptionClass.__name__,));
+        oConsole.fOutput("│    Expected exceptions: %s" % (c0ExpectedExceptionClass.__name__,));
       if len(ac0AcceptableExceptionClasses) > 0:
-        oConsole.fOutput("  Acceptable exceptions:");
+        oConsole.fOutput("│    Acceptable exceptions:");
         for c0AcceptableExceptionClass in ac0AcceptableExceptionClasses:
-          oConsole.fOutput("  * ", "No exception" if c0AcceptableExceptionClass is None else c0AcceptableExceptionClass.__name__);
+          oConsole.fOutput("│    * ", "No exception" if c0AcceptableExceptionClass is None else c0AcceptableExceptionClass.__name__);
       raise;
   else:
     if c0ExpectedExceptionClass:
-      oConsole.fOutput(ERROR, "- Expected exceptions: %s" % (c0ExpectedExceptionClass.__name__,));
+      oConsole.fOutput("│ ", ERROR, "-", NORMAL, " Expected exceptions: %s" % (c0ExpectedExceptionClass.__name__,));
       if len(ac0AcceptableExceptionClasses) > 0:
-        oConsole.fOutput("  Acceptable exceptions:");
+        oConsole.fOutput("│    Acceptable exceptions:");
         for c0AcceptableExceptionClass in ac0AcceptableExceptionClasses:
-          oConsole.fOutput("  * ", "No exception" if c0AcceptableExceptionClass is None else c0AcceptableExceptionClass.__name__);
+          oConsole.fOutput("│    * ", "No exception" if c0AcceptableExceptionClass is None else c0AcceptableExceptionClass.__name__);
       raise AssertionError("Expected an exception but got none.");
-    oConsole.fOutput(OK, "+ Got no exception.");
+    oConsole.fOutput("│ ", OK, "+", NORMAL, " Got no exception.");
   # Cleanup the connection if needed:
   if o0Connection and o0Connection.bConnected:
     # A transaction may need to be started before we can disconnect:
     if bTransactional and not o0Connection.bInTransaction:
-      oConsole.fOutput("* ", sName, " test client: starting transaction to close connection...");
+      oConsole.fOutput("│ ", sName, " test client: starting transaction to close connection...");
       o0Connection.fStartTransaction();
       
-    oConsole.fOutput("* ", sName, " test client: disconnecting...");
+    oConsole.fOutput("│ ", sName, " test client: disconnecting...");
     o0Connection.fDisconnect();
     
     if bTransactional and o0Connection.bInTransaction:
-      oConsole.fOutput("* ", sName, " test client: ending transaction...");
+      oConsole.fOutput("│ ", sName, " test client: ending transaction...");
       o0Connection.fEndTransaction();
     
-    oConsole.fOutput("* ", sName, " test client: waiting for connection to terminate...");
+    oConsole.fOutput("│ ", sName, " test client: waiting for connection to terminate...");
     assert o0Connection.fbWait(nTimeoutInSeconds = gnWaitForConnectionToStopTimeoutInSeconds), \
         "%s did not disconnect within %d seconds!?" % gnWaitForConnectionToStopTimeoutInSeconds;
   
+  oConsole.fOutput("└", sPadding = "─");
   if o0TestServer:
     o0TestServer.fStop();
     o0TestServer.fWait();
