@@ -268,6 +268,10 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
       # This select call will wait for the socket to be closed or a new connection to be made.
       (aoPythonServerSocketsThatCanAccept, aoNotUsed, aoPythonServerSocketsWithErrors) = \
           select.select(oSelf.__aoPythonSockets, [], oSelf.__aoPythonSockets);
+      fShowDebugOutput("%d sockets can accept connections, %d sockets have errors." % (
+        len(aoPythonServerSocketsThatCanAccept),
+        len(aoPythonServerSocketsWithErrors),
+      ));
       assert len(aoPythonServerSocketsWithErrors) == 0, \
           "I do not know what caused this, so I can not handle it!";
       for oPythonServerSocketThatCanAccept in aoPythonServerSocketsThatCanAccept:
@@ -283,6 +287,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
             fShowDebugOutput("Server socket disconnected; stopped accepting connections...");
             break;
           else:
+            fShowDebugOutput("Server socket accept() failed for unknown reasons: %s." % oException);
             raise;
         fShowDebugOutput("New connection accepted from %s:%d..." % (txRemoteAddress[0], txRemoteAddress[1]));
         oSelf.__fHandleNewConnectedPythonSocket(oConnectedPythonSocket);
