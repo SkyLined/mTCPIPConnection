@@ -642,6 +642,8 @@ class cTCPIPConnection(cWithCallbacks):
   
   @ShowDebugOutput
   def __fsbReadBytes(oSelf, uMaxNumberOfBytes, n0TimeoutInSeconds):
+    assert uMaxNumberOfBytes > 0, \
+          "uMaxNumberOfBytes must be larger than 0, not %d" % uMaxNumberOfBytes;
     if oSelf.__oPythonSocket.fileno() == -1:
       oSelf.__fHandleDisconnect();
       return b"";
