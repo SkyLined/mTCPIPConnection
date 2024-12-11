@@ -398,9 +398,6 @@ class cTCPIPConnection(cWithCallbacks):
     oSelf.sbRemoteAddress = fsbAddressFromHostAndPort(oSelf.sbRemoteHost, oSelf.uRemotePortNumber);
     oSelf.nSendDelayPerByteInSeconds = nSendDelayPerByteInSeconds;
     
-    oSelf.__uTerminatedCallbackPostponeCounter = 0;
-    oSelf.__bTerminatedCallbackPostponed = False;
-    
     oSelf.fAddEvents(
       "read bytes",
       "wrote bytes",
@@ -413,28 +410,6 @@ class cTCPIPConnection(cWithCallbacks):
       
       "terminated"
     );
-  
-  def fPostponeTerminatedCallback(oSelf):
-    oSelf.__uTerminatedCallbackPostponeCounter += 1;
-    if oSelf.__uTerminatedCallbackPostponeCounter == 1:
-      fShowDebugOutput(oSelf, "Started postponing terminated callbacks.");
-    else:
-      fShowDebugOutput(oSelf, "Increased postpone terminated callbacks counter to %d (%sevent postponed)." % \
-          (oSelf.__uTerminatedCallbackPostponeCounter, "" if oSelf.__bTerminatedCallbackPostponed else "no "));
-  
-  def fFireTerminatedCallbackIfPostponed(oSelf):
-    assert oSelf.__uTerminatedCallbackPostponeCounter > 0, \
-        "This function has been called more often than fPostponeTerminatedCallback, which is an error!";
-    oSelf.__uTerminatedCallbackPostponeCounter -= 1;
-    if oSelf.__uTerminatedCallbackPostponeCounter == 0:
-      if oSelf.__bTerminatedCallbackPostponed:
-        fShowDebugOutput(oSelf, "Firing postponing terminated callbacks...");
-        oSelf.__bTerminatedCallbackPostponed = False;
-        oSelf.fFireCallbacks("terminated");
-      fShowDebugOutput(oSelf, "Ended postponing terminated callbacks (not postponed).");
-    else:
-      fShowDebugOutput(oSelf, "Decreased postponing terminated callbacks to %d (%sevent postponed)." % \
-        (oSelf.__uTerminatedCallbackPostponeCounter, "" if oSelf.__bTerminatedCallbackPostponed else "no "));
   
   @ShowDebugOutput
   def fSecure(oSelf,
@@ -935,12 +910,8 @@ class cTCPIPConnection(cWithCallbacks):
       oSelf.__oConnectedPropertyAccessLock.fRelease();
     oSelf.fFireCallbacks("disconnected");
     # Fire terminated event now if we are not holding it.
-    if oSelf.__uTerminatedCallbackPostponeCounter == 0:
-      fShowDebugOutput(oSelf, "Firing terminated callbacks...");
-      oSelf.fFireCallbacks("terminated");
-    else:
-      fShowDebugOutput(oSelf, "Postponed terminated callbacks.");
-      oSelf.__bTerminatedCallbackPostponed = True;
+    fShowDebugOutput(oSelf, "Firing terminated callbacks...");
+    oSelf.fFireCallbacks("terminated");
   
   def fsGetEndPointsAndDirection(oSelf):
     return "%s %s %s" % (

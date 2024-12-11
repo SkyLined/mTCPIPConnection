@@ -203,7 +203,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__n0TransactionEndTime = time.time() + n0TimeoutInSeconds if n0TimeoutInSeconds is not None else None;
     finally:
       oSelf.__oPropertiesLock.fRelease();
-    oSelf.fPostponeTerminatedCallback();
     oSelf.fFireCallbacks("transaction started", {"n0TimeoutInSeconds": n0TimeoutInSeconds});
   
   @ShowDebugOutput
@@ -252,19 +251,16 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @ShowDebugOutput
   def fEndTransaction(oSelf):
+    if oSelf.__bStopping:
+      super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
+    oSelf.__oPropertiesLock.fAcquire();
     try:
-      if oSelf.__bStopping:
-        super(cTransactionalBufferedTCPIPConnection, oSelf).fStop();
-      oSelf.__oPropertiesLock.fAcquire();
-      try:
-        oSelf.__oTransactionLock.fRelease();
-        fShowDebugOutput(oSelf, "Ended transaction");
-        oSelf.__n0TransactionEndTime = None;
-      finally:
-        oSelf.__oPropertiesLock.fRelease();
-      oSelf.fFireCallbacks("transaction ended");
+      oSelf.__oTransactionLock.fRelease();
+      fShowDebugOutput(oSelf, "Ended transaction");
+      oSelf.__n0TransactionEndTime = None;
     finally:
-      oSelf.fFireTerminatedCallbackIfPostponed();
+      oSelf.__oPropertiesLock.fRelease();
+    oSelf.fFireCallbacks("transaction ended");
   
   def __fStartWaitingUntilSomeState(oSelf,
     sWaitingUntilState,
@@ -310,7 +306,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   ):
     oSelf.__oPropertiesLock.fAcquire();
     if bStartTransaction:
-      oSelf.fPostponeTerminatedCallback();
       bTransactionStarted = False;
     try:
       assert sWaitingUntilState == oSelf.__s0WaitingUntilState, \
@@ -327,10 +322,8 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       oSelf.__oWaitingUntilSomeStateLock.fRelease();
       oSelf.__s0WaitingUntilState = None;
     except:
-      if bStartTransaction:
-        if bTransactionStarted:
-          oSelf.__oTransactionLock.fbRelease();
-        oSelf.fFireTerminatedCallbackIfPostponed();
+      if bStartTransaction and bTransactionStarted:
+        oSelf.__oTransactionLock.fbRelease();
     finally:
       oSelf.__oPropertiesLock.fRelease();
     if bStartTransaction:
