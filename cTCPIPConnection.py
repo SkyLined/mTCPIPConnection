@@ -154,7 +154,7 @@ class cTCPIPConnection(cWithCallbacks):
     except Exception as oException:
       if fbExceptionMeansSocketAddressIsInvalid(oException):
         if f0HostInvalidCallback:
-          f0HostInvalidCallback(sbHost = sbHost);
+          f0HostInvalidCallback(sbHost = sbHost, oException = oException);
         raise cTCPIPInvalidAddressException(
           "Cannot connect to invalid address %s:%s." % (
             repr(sbHost),
@@ -165,7 +165,7 @@ class cTCPIPConnection(cWithCallbacks):
         );
       elif fbExceptionMeansDNSNameCannotBeResolved(oException):
         if f0ResolvingHostnameFailedCallback:
-          f0ResolvingHostnameFailedCallback(sbHostname = sbHost);
+          f0ResolvingHostnameFailedCallback(sbHostname = sbHost, oException = oException);
         raise cTCPIPDNSNameCannotBeResolvedException(
           "Cannot connect to host %s because it cannot be resolved." % (
             repr(sbHost),
