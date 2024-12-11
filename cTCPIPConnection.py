@@ -625,8 +625,9 @@ class cTCPIPConnection(cWithCallbacks):
       );
     if bThrowExceptionIfShutdownForReading and oSelf.__bShutdownForReading:
       raise cTCPIPConnectionShutdownException(
-        "Connection %s was shutdown for reading." % (
+        "Connection %s was shutdown for reading%s." % (
           oSelf.fsGetEndPointsAndDirection(),
+          " and writing" if oSelf.__bShutdownForWriting else "",
         ),
         ozConnection = oSelf,
       );
