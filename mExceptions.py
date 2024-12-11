@@ -101,19 +101,19 @@ class cTCPIPUnreachableAddressException(cTCPIPException):
   pass;
 
 
-acExceptions = [
-  cTCPIPConnectionCannotBeUsedConcurrentlyException,
-  cTCPIPConnectionDisconnectedException,
-  cTCPIPConnectionRefusedException,
-  cTCPIPConnectionShutdownException,
-  cTCPIPConnectTimeoutException,
-  cTCPIPDataTimeoutException,
-  cTCPIPDNSNameCannotBeResolvedException,
-  cTCPIPException,
-  cTCPIPInvalidAddressException,
-  cTCPIPNetworkErrorException,
-  cTCPIPNoAvailablePortsException,
-  cTCPIPPortAlreadyInUseAsAcceptorException,
-  cTCPIPPortNotPermittedException,
-  cTCPIPUnreachableAddressException,
+__all__ = [
+  "cTCPIPConnectionCannotBeUsedConcurrentlyException",
+  "cTCPIPConnectionDisconnectedException",
+  "cTCPIPConnectionRefusedException",
+  "cTCPIPConnectionShutdownException",
+  "cTCPIPConnectTimeoutException",
+  "cTCPIPDataTimeoutException",
+  "cTCPIPDNSNameCannotBeResolvedException",
+  "cTCPIPException",
+  "cTCPIPInvalidAddressException",
+  "cTCPIPNetworkErrorException",
+  "cTCPIPNoAvailablePortsException",
+  "cTCPIPPortAlreadyInUseAsAcceptorException",
+  "cTCPIPPortNotPermittedException",
+  "cTCPIPUnreachableAddressException",
 ];

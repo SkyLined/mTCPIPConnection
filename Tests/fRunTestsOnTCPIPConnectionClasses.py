@@ -1,10 +1,17 @@
 import gc;
 
-from mTCPIPConnection import \
-    cBufferedTCPIPConnection, \
-    cTCPIPConnection, \
-    cTransactionalBufferedTCPIPConnection, \
-    mExceptions;
+from mTCPIPConnection import (
+  cBufferedTCPIPConnection,
+  cTCPIPConnection,
+  cTCPIPConnectionDisconnectedException,
+  cTCPIPConnectionRefusedException,
+  cTCPIPConnectionShutdownException,
+  cTCPIPConnectTimeoutException,
+  cTCPIPDataTimeoutException,
+  cTCPIPDNSNameCannotBeResolvedException,
+  cTCPIPInvalidAddressException,
+  cTransactionalBufferedTCPIPConnection,
+);
 
 from cTestServer import *;
 
@@ -27,32 +34,32 @@ WARNING =           0x0F0E; # Yellow
 dddxTest_by_sName = {
   "unknown host": {
     "sbHost": b"does.not.exist.example.com",
-    "cExpectedExceptionClass": mExceptions.cTCPIPDNSNameCannotBeResolvedException,
+    "cExpectedExceptionClass": cTCPIPDNSNameCannotBeResolvedException,
   },
   "invalid address": {
     "sbHost": b"0.0.0.0",
-    "cExpectedExceptionClass": mExceptions.cTCPIPInvalidAddressException,
+    "cExpectedExceptionClass": cTCPIPInvalidAddressException,
   },
   "connection refused": {
     "cTestServer arguments": {
       "bListen": False, # Not listening on a server socket should cause connections to be refused.
     },
-    "cExpectedExceptionClass": mExceptions.cTCPIPConnectionRefusedException,
+    "cExpectedExceptionClass": cTCPIPConnectionRefusedException,
   },
   "connect timeout": {
     "cTestServer arguments": {
       "bAccept": False, # Not accepting a connection on the server socket should cause connections to timeout.
     },
-    "cExpectedExceptionClass": mExceptions.cTCPIPConnectTimeoutException,
-    "ac0AcceptableExceptionClasses": [mExceptions.cTCPIPConnectionRefusedException], # It's hard to create a reliable server that triggers a timeout
+    "cExpectedExceptionClass": cTCPIPConnectTimeoutException,
+    "ac0AcceptableExceptionClasses": [cTCPIPConnectionRefusedException], # It's hard to create a reliable server that triggers a timeout
   },
   "disconnected immediately": {
     "cTestServer arguments": {
       "bDisconnect": True, # Will accepting a connection on a server socket and disconnect immediately.
     },
     "sbExpectedResponseData": gsbResponseData, # Waiting for this response should trigger an exception
-    "cExpectedExceptionClass": mExceptions.cTCPIPConnectionDisconnectedException,
-    "ac0AcceptableExceptionClasses": [mExceptions.cTCPIPConnectionShutdownException], # It's hard to create a reliable server that does not shutdown the connection
+    "cExpectedExceptionClass": cTCPIPConnectionDisconnectedException,
+    "ac0AcceptableExceptionClasses": [cTCPIPConnectionShutdownException], # It's hard to create a reliable server that does not shutdown the connection
   },
   "shutdown immediately": {
     "cTestServer arguments": {
@@ -60,15 +67,15 @@ dddxTest_by_sName = {
     },
     "sbRequestData": gsbRequestData,
     "sbExpectedResponseData": gsbResponseData, # Waiting for this response should trigger an exception
-    "cExpectedExceptionClass": mExceptions.cTCPIPConnectionShutdownException,
-    "ac0AcceptableExceptionClasses": [mExceptions.cTCPIPConnectionDisconnectedException], # Reported when connection is shutdown during SSL handshake
+    "cExpectedExceptionClass": cTCPIPConnectionShutdownException,
+    "ac0AcceptableExceptionClasses": [cTCPIPConnectionDisconnectedException], # Reported when connection is shutdown during SSL handshake
   },
   "response timeout": {
     "acAppliesToConnectionClasses": [cTransactionalBufferedTCPIPConnection], # Class must support timeouts.
     "cTestServer arguments": {}, # Accept connections but do nothing
     "sbRequestData": gsbRequestData,
     "sbExpectedResponseData": gsbResponseData,
-    "cExpectedExceptionClass": mExceptions.cTCPIPDataTimeoutException,
+    "cExpectedExceptionClass": cTCPIPDataTimeoutException,
   },
 };
 
@@ -115,45 +122,54 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
   try:
     # Connect
     oConsole.fOutput("│ ", sName, " test client: connecting for %f seconds to server at %s:%d..." % (gnConnectTimeoutInSeconds, sbTestHost, uTestPortNumber));
-    o0Connection = cConnectionClass.foConnectTo(
+    oConnection = cConnectionClass.foConnectTo(
       sbTestHost,
       uTestPortNumber,
       n0zConnectTimeoutInSeconds = gnConnectTimeoutInSeconds,
       o0SSLContext = o0ClientSSLContext,
       n0zSecureTimeoutInSeconds = None,
     );
-    bBuffered = hasattr(o0Connection, "fsReadBytes");
-    bTransactional = hasattr(o0Connection, "fStartTransaction");
+    o0Connection = oConnection;
+    bBuffered = isinstance(oConnection, cBufferedTCPIPConnection);
+    bTransactional = isinstance(oConnection, cTransactionalBufferedTCPIPConnection);
     # Start transaction if applicable
     if bTransactional:
       oConsole.fOutput("│ ", sName, " test client: starting %f second transaction..." % (gnTransactionTimeoutInSeconds,));
-      o0Connection.fStartTransaction(n0TimeoutInSeconds = gnTransactionTimeoutInSeconds);
+      oConnection.fStartTransaction(n0TimeoutInSeconds = gnTransactionTimeoutInSeconds);
     # Send request if applicable
     sb0RequestData = ddxTest.get("sbRequestData");
     if sb0RequestData is not None:
       oConsole.fOutput("│ ", sName, " test client: writing ", str(len(sb0RequestData)), " bytes data...", );
-      o0Connection.fWriteBytes(sb0RequestData);
+      oConnection.fWriteBytes(sb0RequestData);
     # Read response if applicable
     sb0ExpectedResponseData = ddxTest.get("sbExpectedResponseData");
     if sb0ExpectedResponseData is not None:
       if bTransactional:
-        sbReceivedData = o0Connection.fsbReadBytes(
+        sbReceivedData = oConnection.fsbReadBytes(
           uNumberOfBytes = len(sb0ExpectedResponseData),
         );
       elif bBuffered:
-        sbReceivedData = o0Connection.fsbReadBytes(
+        sbReceivedData = oConnection.fsbReadBytes(
           uNumberOfBytes = len(sb0ExpectedResponseData),
           n0TimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
         );
       else:
         sbReceivedData = b"";
         while len(sbReceivedData) < len(sb0ExpectedResponseData):
-          oConsole.fOutput("│ ", sName, " test client: waiting %f seconds until bytes are available for reading..." % (gnWaitForDataTimeoutInSeconds,));
-          o0Connection.fWaitUntilBytesAreAvailableForReading(
-            n0WaitTimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
-          );
-          oConsole.fOutput("│ ", sName, " test client: reading bytes...");
-          sbReceivedData += o0Connection.fsbReadAvailableBytes();
+          if bBuffered:
+            oConsole.fOutput("│ ", sName, " test client: waiting %f seconds until bytes are available for reading..." % (gnWaitForDataTimeoutInSeconds,));
+            bBytesAreAvailableForReading = oConnection.fbWaitUntilBytesAreAvailableForReading(
+              nWaitTimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
+            );
+            assert bBytesAreAvailableForReading, \
+                "No bytes available for reading after %f seconds" % gnWaitForDataTimeoutInSeconds;
+            oConsole.fOutput("│ ", sName, " test client: reading bytes...");
+            sbReceivedData += oConnection.fsbReadAvailableBytes();
+          else:
+            oConsole.fOutput("│ ", sName, " test client: reading bytes...");
+            sbReceivedData += oConnection.fsbReadAvailableBytes(
+              n0TimeoutInSeconds = gnWaitForDataTimeoutInSeconds,
+            );
       assert sbReceivedData == sb0ExpectedResponseData, \
           "Expected %s, got %s" % (repr(sb0ExpectedResponseData), repr(sbReceivedData));
   except Exception as oException:
@@ -181,25 +197,25 @@ def fRunATestOnTCPIPConnectionClass(oConsole, cConnectionClass, o0ClientSSLConte
       raise AssertionError("Expected an exception but got none.");
     oConsole.fOutput("│ ", OK, "+", NORMAL, " Got no exception.");
   # Cleanup the connection if needed:
-  if o0Connection and o0Connection.bConnected:
+  if o0Connection and oConnection.bConnected:
     # A transaction may need to be started before we can disconnect:
-    if bTransactional and not o0Connection.bInTransaction:
+    if bTransactional and not oConnection.bInTransaction:
       oConsole.fOutput("│ ", sName, " test client: starting transaction to close connection...");
-      o0Connection.fStartTransaction();
+      oConnection.fStartTransaction();
       
     oConsole.fOutput("│ ", sName, " test client: disconnecting...");
-    o0Connection.fDisconnect();
+    oConnection.fDisconnect();
     
-    if bTransactional and o0Connection.bInTransaction:
+    if bTransactional and oConnection.bInTransaction:
       oConsole.fOutput("│ ", sName, " test client: ending transaction...");
-      o0Connection.fEndTransaction();
+      oConnection.fEndTransaction();
     
     oConsole.fOutput("│ ", sName, " test client: waiting for connection to terminate...");
-    assert o0Connection.fbWait(nTimeoutInSeconds = gnWaitForConnectionToStopTimeoutInSeconds), \
+    assert oConnection.fbWait(nTimeoutInSeconds = gnWaitForConnectionToStopTimeoutInSeconds), \
         "%s did not disconnect within %d seconds!?" % gnWaitForConnectionToStopTimeoutInSeconds;
   
-  oConsole.fOutput("└", sPadding = "─");
   if o0TestServer:
     o0TestServer.fStop();
     o0TestServer.fWait();
+  oConsole.fOutput("└", sPadding = "─");
   gc.collect();

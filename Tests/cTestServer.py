@@ -130,7 +130,7 @@ class cTestServer(object):
               n0zTimeoutInSeconds = 5,
             );
           except Exception as oException:
-            if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
+            if m0SSL and isinstance(oException, m0SSL.cSSLException):
               oSelf.oConsole.fOutput(
                 WARN, "* ",
                 NORMAL, oSelf.sName, " test server: could not secure connection: ",

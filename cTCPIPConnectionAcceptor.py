@@ -8,10 +8,23 @@ except ModuleNotFoundError as oException:
   ShowDebugOutput = lambda fx: fx; # NOP
   fShowDebugOutput = lambda x, s0 = None: x; # NOP
 
-from mNotProvided import \
-  fAssertType, \
-  fbIsProvided, \
-  zNotProvided;
+from mMultiThreading import (
+  cLock,
+  cThread,
+  cWithCallbacks,
+);
+from mNotProvided import (
+  fAssertType,
+  fbIsProvided,
+  zNotProvided,
+);
+try: # SSL support is optional.
+  import mSSL as m0SSL;
+except ModuleNotFoundError as oException:
+  if oException.args[0] != "No module named 'mSSL'":
+    raise;
+  m0SSL = None; # No SSL support
+
 
 from .cTCPIPConnection import cTCPIPConnection;
 from .fbExceptionMeansPortNotPermitted import fbExceptionMeansPortNotPermitted;
@@ -20,23 +33,15 @@ from .fbExceptionMeansSocketAlreadyInUseAsAcceptor import fbExceptionMeansSocket
 from .fbExceptionMeansSocketDisconnected import fbExceptionMeansSocketDisconnected;
 from .fbExceptionMeansDNSNameCannotBeResolved import fbExceptionMeansDNSNameCannotBeResolved;
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
-from .mExceptions import \
-  acExceptions, \
-  cTCPIPConnectionDisconnectedException, \
-  cTCPIPConnectionShutdownException, \
-  cTCPIPDNSNameCannotBeResolvedException, \
-  cTCPIPInvalidAddressException, \
-  cTCPIPNoAvailablePortsException, \
-  cTCPIPPortAlreadyInUseAsAcceptorException, \
-  cTCPIPPortNotPermittedException;
-
-from mMultiThreading import cLock, cThread, cWithCallbacks;
-try: # SSL support is optional.
-  import mSSL as m0SSL;
-except ModuleNotFoundError as oException:
-  if oException.args[0] != "No module named 'mSSL'":
-    raise;
-  m0SSL = None; # No SSL support
+from .mExceptions import (
+  cTCPIPConnectionDisconnectedException,
+  cTCPIPConnectionShutdownException,
+  cTCPIPDNSNameCannotBeResolvedException,
+  cTCPIPInvalidAddressException,
+  cTCPIPNoAvailablePortsException,
+  cTCPIPPortAlreadyInUseAsAcceptorException,
+  cTCPIPPortNotPermittedException,
+);
 
 # If theire are no default port numbers, or they are in use, pick the first
 # one that is free one from this range of numbers:
@@ -314,7 +319,7 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
         oNewConnection.fSecure(oSelf.__o0SSLContext, n0zTimeoutInSeconds = oSelf.__n0zSecureTimeoutInSeconds);
       except Exception as oException:
         oSelf.fFireCallbacks("securing connection from client failed", oConnection = oNewConnection, oSSLContext = oSelf.__o0SSLContext, oException = oException);
-        if m0SSL and isinstance(oException, m0SSL.mExceptions.cSSLException):
+        if m0SSL and isinstance(oException, m0SSL.cSSLException):
           fShowDebugOutput("SSL exception while securing connection.");
         elif isinstance(oException, cTCPIPConnectionShutdownException):
           fShowDebugOutput("Shut down while securing connection.");
@@ -345,7 +350,3 @@ class cTCPIPConnectionAcceptor(cWithCallbacks):
   
   def __str__(oSelf):
     return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));
-
-# For convenient access:
-for cException in acExceptions:
-  setattr(cTCPIPConnectionAcceptor, cException.__name__, cException);

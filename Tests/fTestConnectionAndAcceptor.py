@@ -1,16 +1,16 @@
 from mConsoleLoader import oConsole;
 
-gsbData = b"Hello, world!";
 gsbHostname = b"127.0.0.1";
 guPortNumber = 28876;
 
-def fWriteData(oConnection):
-  oConsole.fOutput("%s: writing %d bytes data: %s." % (oConnection, len(gsbData), repr(gsbData)));
-  oConnection.fWriteBytes(gsbData);
+def fWriteData(oConnection, sbData):
+  oConsole.fOutput("%s: writing %d bytes data: %s." % (oConnection, len(sbData), repr(sbData)));
+  oConnection.fWriteBytes(sbData);
 
 def fWaitForAndReadData(oConnection):
-  oConsole.fOutput("%s: Waiting until bytes are available for reading..." % oConnection);
-  oConnection.fWaitUntilBytesAreAvailableForReading();
+  if hasattr(oConnection, "fWaitUntilBytesAreAvailableForReading"):
+    oConsole.fOutput("%s: Waiting until bytes are available for reading..." % oConnection);
+    oConnection.fWaitUntilBytesAreAvailableForReading();
   oConsole.fOutput("%s: Reading data..." % oConnection);
   sbReceivedData = oConnection.fsbReadAvailableBytes();
   oConsole.fOutput("%s:   Read %d bytes data: %s." % (oConnection, len(sbReceivedData), repr(sbReceivedData)));
@@ -40,7 +40,7 @@ def fTestConnectionAndAcceptor(cConnection, cConnectionAcceptor, o0ClientSSLCont
     
     fStartTransactionIfPossible(oConnection);
     fWaitForAndReadData(oConnection);
-    fWriteData(oConnection);
+    fWriteData(oConnection, b"Hello, client!");
     fEndTransactionIfPossible(oConnection);
     
     fDisconnectAndWait(oConnection)
@@ -60,7 +60,7 @@ def fTestConnectionAndAcceptor(cConnection, cConnectionAcceptor, o0ClientSSLCont
   oConsole.fOutput("Client side: New connection %s." % oConnection);
   
   fStartTransactionIfPossible(oConnection);
-  fWriteData(oConnection);
+  fWriteData(oConnection, b"Hello, server!");
   fWaitForAndReadData(oConnection);  
   fEndTransactionIfPossible(oConnection);
   

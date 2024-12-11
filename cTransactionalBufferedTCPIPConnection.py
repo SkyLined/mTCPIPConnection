@@ -12,10 +12,11 @@ from mMultiThreading import cLock;
 from mNotProvided import fAssertType;
 
 from .cBufferedTCPIPConnection import cBufferedTCPIPConnection;
-from .mExceptions import \
-    cTCPIPConnectionCannotBeUsedConcurrentlyException, \
-    cTCPIPConnectionDisconnectedException, \
-    cTCPIPConnectionShutdownException;
+from .mExceptions import (
+  cTCPIPConnectionCannotBeUsedConcurrentlyException,
+  cTCPIPConnectionDisconnectedException,
+  cTCPIPConnectionShutdownException,
+);
 
 gnDeadlockTimeoutInSeconds = 1; # We're not doing anything time consuming, so this should suffice.
 
@@ -368,7 +369,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   @ShowDebugOutput
   def fWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf,
     *,
-    n0WaitTimeoutInSeconds = None,
     n0TransactionTimeoutInSeconds = None,
   ):
     # Wait until bytes are available for reading and then start a transaction.
@@ -380,9 +380,7 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
     sWaitingUntilState = "bytes are available for reading";
     oSelf.__fStartWaitingUntilSomeState(sWaitingUntilState);
     try:
-      oSelf.fWaitUntilBytesAreAvailableForReading(
-        n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
-      );
+      oSelf.fWaitUntilBytesAreAvailableForReading();
     except:
       oSelf.__fEndWaitingUntilSomeState(
         sWaitingUntilState,
@@ -402,6 +400,51 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
       bStartTransaction = True,
       n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds,
     );
+  
+  @ShowDebugOutput
+  def fbWaitUntilBytesAreAvailableForReadingAndStartTransaction(oSelf,
+    *,
+    n0WaitTimeoutInSeconds = None,
+    n0TransactionTimeoutInSeconds = None,
+  ):
+    # Wait until bytes are available for reading and then start a transaction.
+    # Raise cTCPIPConnectionCannotBeUsedConcurrentlyException if a transaction is
+    # currently active or someone else is already waiting until some state.
+    # (A transaction if not started in this case).
+    # Return True if bytes are available for reading and a transaction was started.
+    # Can throw a timeout, shutdown or disconnected exception.
+    sWaitingUntilState = "bytes are available for reading";
+    oSelf.__fStartWaitingUntilSomeState(sWaitingUntilState);
+    try:
+      bBytesAreAvailableForReading = oSelf.fbWaitUntilBytesAreAvailableForReading(
+        nWaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
+      )
+    except:
+      oSelf.__fEndWaitingUntilSomeState(
+        sWaitingUntilState,
+        bStartTransaction = False,
+      );
+      raise;
+    if not oSelf.bConnected or oSelf.__bStopping:
+      raise cTCPIPConnectionDisconnectedException(
+        "Connection %s was disconnected while waiting until %s." % (
+          oSelf.fsGetEndPointsAndDirection(),
+          sWaitingUntilState,
+        ),
+        ozConnection = oSelf,
+      );
+    if not bBytesAreAvailableForReading:
+      oSelf.__fEndWaitingUntilSomeState(
+        sWaitingUntilState,
+        bStartTransaction = False,
+      );
+      return False;
+    oSelf.__fEndWaitingUntilSomeState(
+      sWaitingUntilState,
+      bStartTransaction = True,
+      n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds,
+    );
+    return True;
   
   def fsbReadAvailableBytes(oSelf, *txArguments, **dxArguments):
     assert oSelf.bInTransaction, \
