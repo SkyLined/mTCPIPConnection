@@ -7,5 +7,6 @@ def fbExceptionMeansSocketHasNoDataAvailable(oException):
     ]) or
     (oException.__class__ == BlockingIOError and oException.errno in [
       10035, # A non-blocking socket operation could not be completed immediately
-    ])
+    ]) or
+    (oException.__class__ == TimeoutError)
   );

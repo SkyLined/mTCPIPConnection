@@ -68,7 +68,7 @@ class cTCPIPConnection(cWithCallbacks):
 
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilAllowsReadingOrShutdown(cClass,
+  def faoWaitUntilReadEventOnPythonSocket(cClass,
     aoConnections,
     *,
     n0WaitTimeoutInSeconds = None,
@@ -81,7 +81,7 @@ class cTCPIPConnection(cWithCallbacks):
     aoShutdownOrClosedConnections = [];
     doOpenConnections_by_oPythonSocket = {};
     for oConnection in aoConnections:
-      if not oConnection.__fbConnected() or oConnection.bShutdownForReading:
+      if not oConnection.__fbConnected() or oConnection.__bShutdownForReading:
         aoShutdownOrClosedConnections.append(oConnection);
       else:
         if n0WaitTimeoutInSeconds is not None:
@@ -98,22 +98,13 @@ class cTCPIPConnection(cWithCallbacks):
       # Wait indefinitely.
       None
     );
-    aoPythonSockets = list(doOpenConnections_by_oPythonSocket.keys);
-    (aoPythonSocketsR, aoPythonSocketsW_unused, aoPythonSocketsE) = select.select(
-      aoPythonSockets,
-      [],
-      aoPythonSockets,
-      n0WaitTimeoutInSeconds,
-    );
-    aoConnectionsR = [
+    aoPythonSockets = list(doOpenConnections_by_oPythonSocket.keys());
+    aoPythonSocketsWithReadEvent = select.select(aoPythonSockets, [], [], n0WaitTimeoutInSeconds)[0];
+    aoConnectionsWithReadEvent = [
       doOpenConnections_by_oPythonSocket[oPythonSocket]
-      for oPythonSocket in aoPythonSocketsR
+      for oPythonSocket in aoPythonSocketsWithReadEvent
     ];
-    aoConnectionsE = [
-      doOpenConnections_by_oPythonSocket[oPythonSocket]
-      for oPythonSocket in aoPythonSocketsE
-    ];
-    return list(set(aoShutdownOrClosedConnections + aoConnectionsR + aoConnectionsE));
+    return aoShutdownOrClosedConnections + aoConnectionsWithReadEvent;
 
   @classmethod
   @ShowDebugOutput
@@ -550,36 +541,6 @@ class cTCPIPConnection(cWithCallbacks):
   def bShutdownForWriting(oSelf):
     return oSelf.__bShutdownForWriting;
   
-  @property
-  @ShowDebugOutput
-  def bAllowsReadingOrShutdown(oSelf):
-    # If bytes have been send from the remote, or the connection was 
-    # shut down/disconnected from the remote, select.select will report
-    # it as readable. We will not know which until we try reading bytes.
-    if not oSelf.__fbConnected():
-      fShowDebugOutput(oSelf, "Disconnected.");
-      return True;
-    if oSelf.__bShutdownForReading:
-      fShowDebugOutput(oSelf, "Shutdown.");
-      return True;
-    oSelf.__oPythonSocket.settimeout(0);
-    (aoR, aoW, aoE) = select.select([oSelf.__oPythonSocket], [oSelf.__oPythonSocket], [oSelf.__oPythonSocket], 0);
-    fShowDebugOutput(oSelf, "select.select = %s%s%s." % (
-      "R" if len(aoR) > 0 else ".",
-      "W" if len(aoW) > 0 else ".",
-      "E" if len(aoE) > 0 else ".",
-    ));
-    assert len(aoE) == 0, \
-        "wut!?";
-    if len(aoR) > 0:
-      fShowDebugOutput(oSelf, "Readable or shutdown/disconnected.");
-      return True;
-    if len(aoE) > 0:
-      fShowDebugOutput(oSelf, "select.select reported an error.");
-      return False;
-    fShowDebugOutput(oSelf, "Open but not readable.");
-    return False;
-  
   def __fHandleShutdownForReading(oSelf):
     oSelf.__bShutdownForReading = True;
     if not oSelf.__fbConnected():
@@ -607,19 +568,39 @@ class cTCPIPConnection(cWithCallbacks):
     return oSelf.__oTerminatedLock.bLocked;
   
   @ShowDebugOutput
-  def fWaitUntilAllowsReadingOrShutdown(oSelf):
+  def fbHasReadEventOnPythonSocket(oSelf):
+    if not oSelf.__fbConnected():
+      fShowDebugOutput(oSelf, "Disconnected.");
+      return True;
+    if oSelf.__bShutdownForReading:
+      fShowDebugOutput(oSelf, "Shutdown.");
+      return True;
+    oSelf.__oPythonSocket.settimeout(0);
+    bHasReadEvent = len(select.select([oSelf.__oPythonSocket], [], [], 0)[0]) > 0;
+    if bHasReadEvent:
+      fShowDebugOutput(oSelf, "Read event detected.");
+      return True;
+    fShowDebugOutput(oSelf, "No read event detected.");
+    return False;
+  
+  @ShowDebugOutput
+  def fWaitUntilReadEventOnPythonSocket(oSelf):
     oSelf.__oPythonSocket.setblocking(True);
-    select.select([oSelf.__oPythonSocket], [], [oSelf.__oPythonSocket]);
+    select.select([oSelf.__oPythonSocket], [], []);
 
   @ShowDebugOutput
-  def fbWaitUntilAllowsReadingOrShutdown(oSelf,
+  def fbWaitUntilReadEventOnPythonSocket(oSelf,
     *,
     nWaitTimeoutInSeconds,
   ):
     fAssertType("nWaitTimeoutInSeconds", nWaitTimeoutInSeconds, int, float);
     oSelf.__oPythonSocket.settimeout(nWaitTimeoutInSeconds);
-    (aoR, aoW_unused, aoE) = select.select([oSelf.__oPythonSocket], [], [oSelf.__oPythonSocket], nWaitTimeoutInSeconds);
-    return len(aoR) > 0 or len(aoE) > 0;
+    bHasReadEvent = len(select.select([oSelf.__oPythonSocket], [], [], nWaitTimeoutInSeconds)[0]) > 0;
+    if bHasReadEvent:
+      fShowDebugOutput(oSelf, "Read event detected.");
+      return True;
+    fShowDebugOutput(oSelf, "No read event detected.");
+    return False;
 
   def fThrowExceptionIfShutdownOrDisconnected(oSelf):
     oSelf.__fThrowExceptionIfApplicable(
@@ -660,56 +641,22 @@ class cTCPIPConnection(cWithCallbacks):
         "The connection was expected to be shut down or disconnected but neither was true.";
   
   @ShowDebugOutput
-  def fsbReadAvailableBytes(oSelf,
-    *,
-    u0MaxNumberOfBytes = None,
-    n0TimeoutInSeconds = None,
-  ):
-    # Can throw a shutdown or disconnected exception *if* this happens before any bytes can be read.
-    # Returns any bytes that can currently be read, this could be "".
-    fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
-    if not oSelf.bAllowsReadingOrShutdown:
-      fShowDebugOutput(oSelf, "No data available for reading at this time.");
+  def __fsbReadBytes(oSelf, uMaxNumberOfBytes, n0TimeoutInSeconds):
+    if oSelf.__oPythonSocket.fileno() == -1:
+      oSelf.__fHandleDisconnect();
       return b"";
-    nStartTime = time.time();
-    sbBytesRead = b"";
+    fShowDebugOutput(oSelf, "Reading up to %d bytes..." % uMaxNumberOfBytes);
     try:
-      if u0MaxNumberOfBytes is not None:
-        if n0TimeoutInSeconds:
-          oSelf.__oPythonSocket.settimeout(n0TimeoutInSeconds);
-        else:
-          oSelf.__oPythonSocket.settimeout(0);
-        fShowDebugOutput(oSelf, "Reading up to %d bytes..." % u0MaxNumberOfBytes);
-        sbBytesRead = oSelf.__oPythonSocket.recv(u0MaxNumberOfBytes);
-        fShowDebugOutput(oSelf, "Read %d bytes." % len(sbBytesRead));
+      bHasReadEvent = len(select.select([oSelf.__oPythonSocket],[],[],0,)[0]) > 0;
+      if n0TimeoutInSeconds:
+        oSelf.__oPythonSocket.settimeout(n0TimeoutInSeconds);
       else:
-        fShowDebugOutput(oSelf, "Reading in blocks of %d bytes..." % oSelf.uReadChunkSize);
-        nStartTime = time.time()
-        n0RemainingTimeoutInSeconds = n0TimeoutInSeconds;
-        while 1:
-          if n0RemainingTimeoutInSeconds is not None:
-            oSelf.__oPythonSocket.settimeout(n0RemainingTimeoutInSeconds);
-          else:
-            oSelf.__oPythonSocket.settimeout(0);
-          sbChunkBytesRead = oSelf.__oPythonSocket.recv(oSelf.uReadChunkSize);
-          fShowDebugOutput(oSelf, "Read %d bytes." % len(sbChunkBytesRead));
-          sbBytesRead += sbChunkBytesRead;
-          if n0TimeoutInSeconds is not None:
-            n0RemainingTimeoutInSeconds = nStartTime + n0TimeoutInSeconds - time.time();
-            if n0RemainingTimeoutInSeconds <= 0:
-              break;
-          if not oSelf.bAllowsReadingOrShutdown:
-            fShowDebugOutput(oSelf, "No more data available for reading.");
-            break;
-          if len(sbChunkBytesRead) == 0:
-            break;
-        fShowDebugOutput(oSelf, "Read a total of %d bytes." % len(sbBytesRead));
+        oSelf.__oPythonSocket.settimeout(0);
+      sbBytesRead = oSelf.__oPythonSocket.recv(uMaxNumberOfBytes);
     except Exception as oException:
       fShowDebugOutput(oSelf, "Exception during `recv()`: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketHasNoDataAvailable(oException):
-        fShowDebugOutput(oSelf, "No more bytes to read.");
-        # No more data to read.
-        pass;
+        fShowDebugOutput(oSelf, "No bytes to read.");
       elif fbExceptionMeansSocketShutdown(oException):
         fShowDebugOutput(oSelf, "Connection was shut down.");
         oSelf.__fHandleShutdownForReading();
@@ -718,28 +665,11 @@ class cTCPIPConnection(cWithCallbacks):
         oSelf.__fHandleDisconnect();
       else:
         raise;
-    # If we did not read any bytes, the connection was shut down.
-    if len(sbBytesRead) == 0:
-      # SSL sockets have an issue where select.select reports they are readable
-      # but they do not actually have any data to read. In this case, select.select
-      # should report they are no longer readable after attempt to read data.
-      if oSelf.__o0SSLContext and not oSelf.bAllowsReadingOrShutdown:
-        # This connection has not yet been shut down.
-        # TODO: I believe there is a small race condition:
-        # 1. select.select reports socket has read flag set,
-        # 2. SSL sockets has no data because of above issue, so we read 0 bytes,
-        # 3. Data becomes available for reading before we reach this part of the code,
-        # 4. select.select reports socket has read flag set,
-        # 5. We assume socket is closed.
-        # I need to solve this to make the code reliable
-        pass;
-      else:
-        fShowDebugOutput(oSelf, "Nothing read even though data should be available: assume connection shutdown.");
-        oSelf.__fHandleShutdownForReading();
-        oSelf.__fThrowExceptionIfApplicable(
-          bThrowExceptionIfShutdownForReading = True,
-          bMustThrowException = True,
-        );
+      return b"";
+    fShowDebugOutput(oSelf, "Read %d bytes." % len(sbBytesRead));
+    if bHasReadEvent and len(sbBytesRead) == 0:
+      fShowDebugOutput(oSelf, "No bytes available to read even though data should be available: connection was shut down.");
+      oSelf.__fHandleShutdownForReading();
     uShowDataBytesPerLine = 32;
     for uOffset in range(0, len(sbBytesRead), uShowDataBytesPerLine):
       sbData = sbBytesRead[uOffset:uOffset + uShowDataBytesPerLine];
@@ -748,7 +678,41 @@ class cTCPIPConnection(cWithCallbacks):
         "| " +
         "".join([chr(uByte) if uByte in range(0x20, 0x7F) else "." for uByte in sbData])
       );
-      oSelf.fFireCallbacks("read bytes", sbBytes = sbBytesRead);
+    oSelf.fFireCallbacks("read bytes", sbBytes = sbBytesRead);
+    return sbBytesRead;
+
+  @ShowDebugOutput
+  def fsbReadAvailableBytes(oSelf,
+    *,
+    u0MaxNumberOfBytes = None,
+    n0TimeoutInSeconds = None,
+  ):
+    # Can throw a shutdown or disconnected exception *if* this happens before any bytes can be read.
+    # Returns any bytes that can currently be read, this could be "".
+    fAssertType("u0MaxNumberOfBytes", u0MaxNumberOfBytes, int, None);
+    if u0MaxNumberOfBytes is not None:
+      sbBytesRead = oSelf.__fsbReadBytes(u0MaxNumberOfBytes, n0TimeoutInSeconds);
+    else:
+      fShowDebugOutput(oSelf, "Reading in blocks of %d bytes..." % oSelf.uReadChunkSize);
+      nStartTime = time.time()
+      n0RemainingTimeoutInSeconds = n0TimeoutInSeconds;
+      sbBytesRead = b"";
+      while 1:
+        sbChunkBytesRead = oSelf.__fsbReadBytes(oSelf.uReadChunkSize, n0RemainingTimeoutInSeconds);
+        sbBytesRead += sbChunkBytesRead;
+        if len(sbChunkBytesRead) == 0:
+          break;
+        if n0TimeoutInSeconds is not None:
+          n0RemainingTimeoutInSeconds = nStartTime + n0TimeoutInSeconds - time.time();
+          if n0RemainingTimeoutInSeconds <= 0:
+            break;
+      fShowDebugOutput(oSelf, "Read a total of %d bytes." % len(sbBytesRead));
+    if len(sbBytesRead) == 0 and oSelf.__bShutdownForReading:
+      fShowDebugOutput(oSelf, "Read nothing: throwing shutdown-for-reading exception...");
+      oSelf.__fThrowExceptionIfApplicable(
+        bThrowExceptionIfShutdownForReading = True,
+        bMustThrowException = True,
+      );
     return sbBytesRead;
   
   @ShowDebugOutput
@@ -768,6 +732,8 @@ class cTCPIPConnection(cWithCallbacks):
           u0MaxNumberOfBytes = u0MaxNumberOfBytesRemaining,
           n0TimeoutInSeconds = n0RemainingTimeoutInSeconds,
         );
+        if n0RemainingTimeoutInSeconds == 0:
+          break;
         if len(sbAvailableBytes) == 0:
           raise cTCPIPDataTimeoutException(
             "Timeout on connection %s after %s seconds." % (
@@ -1000,4 +966,4 @@ class cTCPIPConnection(cWithCallbacks):
     return "<%s.%s#%X|%s>" % (sModuleName, oSelf.__class__.__name__, id(oSelf), "|".join(oSelf.fasGetDetails()));
   
   def __str__(oSelf):
-    return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));
+    return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));#
