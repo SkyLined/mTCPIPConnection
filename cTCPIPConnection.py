@@ -650,12 +650,13 @@ class cTCPIPConnection(cWithCallbacks):
       return b"";
     fShowDebugOutput(oSelf, "Reading up to %d bytes..." % uMaxNumberOfBytes);
     try:
-      bHasReadEvent = len(select.select([oSelf.__oPythonSocket],[],[],0,)[0]) > 0;
       if n0TimeoutInSeconds:
         oSelf.__oPythonSocket.settimeout(n0TimeoutInSeconds);
       else:
         oSelf.__oPythonSocket.settimeout(0);
+      bReadEventDetectedBefore = len(select.select([oSelf.__oPythonSocket],[],[],0)[0]) > 0;
       sbBytesRead = oSelf.__oPythonSocket.recv(uMaxNumberOfBytes);
+      bReadEventDetectedAfter = len(select.select([oSelf.__oPythonSocket],[],[],0)[0]) > 0;
     except Exception as oException:
       fShowDebugOutput(oSelf, "Exception during `recv()`: %s(%s)" % (oException.__class__.__name__, oException));
       if fbExceptionMeansSocketHasNoDataAvailable(oException):
@@ -669,9 +670,11 @@ class cTCPIPConnection(cWithCallbacks):
       else:
         raise;
       return b"";
+    fShowDebugOutput(oSelf, "Read event detected before." if bReadEventDetectedBefore else "No read event detected before.");
     fShowDebugOutput(oSelf, "Read %d bytes." % len(sbBytesRead));
-    if bHasReadEvent and len(sbBytesRead) == 0:
-      fShowDebugOutput(oSelf, "No bytes available to read even though data should be available: connection was shut down.");
+    fShowDebugOutput(oSelf, "Read event detected after." if bReadEventDetectedAfter else "No read event detected after.");
+    if bReadEventDetectedBefore and len(sbBytesRead) == 0 and bReadEventDetectedAfter:
+      fShowDebugOutput(oSelf, "Nothing read even though read events were detected: connection must have been shut down.");
       oSelf.__fHandleShutdownForReading();
     uShowDataBytesPerLine = 32;
     for uOffset in range(0, len(sbBytesRead), uShowDataBytesPerLine):
