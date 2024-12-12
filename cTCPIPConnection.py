@@ -648,18 +648,20 @@ class cTCPIPConnection(cWithCallbacks):
     fShowDebugOutput(oSelf, "Read event detected before." if bReadEventDetectedBefore else "No read event detected before.");
     fShowDebugOutput(oSelf, "Read %d bytes." % len(sbBytesRead));
     fShowDebugOutput(oSelf, "Read event detected after." if bReadEventDetectedAfter else "No read event detected after.");
-    if bReadEventDetectedBefore and len(sbBytesRead) == 0 and bReadEventDetectedAfter:
-      fShowDebugOutput(oSelf, "Nothing read even though read events were detected: connection must have been shut down.");
-      oSelf.__fHandleShutdownForReading();
-    uShowDataBytesPerLine = 32;
-    for uOffset in range(0, len(sbBytesRead), uShowDataBytesPerLine):
-      sbData = sbBytesRead[uOffset:uOffset + uShowDataBytesPerLine];
-      fShowDebugOutput(
-        " ".join(["%02X" % uByte for uByte in sbData]).ljust(3 * uShowDataBytesPerLine) +
-        "| " +
-        "".join([chr(uByte) if uByte in range(0x20, 0x7F) else "." for uByte in sbData])
-      );
-    oSelf.fFireCallbacks("read bytes", sbBytes = sbBytesRead);
+    if len(sbBytesRead) == 0:
+      if bReadEventDetectedBefore and bReadEventDetectedAfter:
+        fShowDebugOutput(oSelf, "Nothing read even though read events were detected: connection must have been shut down.");
+        oSelf.__fHandleShutdownForReading();
+    else:
+      uShowDataBytesPerLine = 32;
+      for uOffset in range(0, len(sbBytesRead), uShowDataBytesPerLine):
+        sbData = sbBytesRead[uOffset:uOffset + uShowDataBytesPerLine];
+        fShowDebugOutput(
+          " ".join(["%02X" % uByte for uByte in sbData]).ljust(3 * uShowDataBytesPerLine) +
+          "| " +
+          "".join([chr(uByte) if uByte in range(0x20, 0x7F) else "." for uByte in sbData])
+        );
+      oSelf.fFireCallbacks("read bytes", sbBytes = sbBytesRead);
     return sbBytesRead;
 
   @ShowDebugOutput
