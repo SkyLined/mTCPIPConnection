@@ -73,23 +73,6 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
   
   @classmethod
   @ShowDebugOutput
-  def faoWaitUntilBytesAreAvailableForReadingAndStartTransactions(cClass,
-    aoConnections,
-    *,
-    n0WaitTimeoutInSeconds = None,
-    n0TransactionTimeoutInSeconds = None,
-  ):
-    fAssertType("aoConnections", aoConnections, [cTransactionalBufferedTCPIPConnection]);
-    return cClass.__faoWaitUntilSomeStateAndStartTransactions(
-      aoConnections,
-      sWaitingUntilState = "bytes are available for reading",
-      faoWaitUntilSomeState = super(cTransactionalBufferedTCPIPConnection, cClass).faoWaitUntilBytesAreAvailableForReading,
-      n0WaitTimeoutInSeconds = n0WaitTimeoutInSeconds,
-      n0TransactionTimeoutInSeconds = n0TransactionTimeoutInSeconds,
-    );
-  
-  @classmethod
-  @ShowDebugOutput
   def faoWaitUntilTransactionsCanBeStartedAndStartTransactions(cClass,
     aoConnections,
     *,
