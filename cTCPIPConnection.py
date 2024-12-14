@@ -538,9 +538,7 @@ class cTCPIPConnection(cWithCallbacks):
   def bConnected(oSelf):
     return oSelf.__fbConnected();
   def __fbConnected(oSelf):
-    if oSelf.__oTerminatedLock.bLocked and oSelf.__oPythonSocket.fileno() == -1:
-      oSelf.__fHandleDisconnect();
-    return oSelf.__oTerminatedLock.bLocked;
+    return oSelf.__oPythonSocket.fileno() != -1;
   
   @ShowDebugOutput
   def fbHasReadEventOnPythonSocket(oSelf):
