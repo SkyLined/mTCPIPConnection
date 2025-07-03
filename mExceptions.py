@@ -1,71 +1,47 @@
 from mNotProvided import fbIsProvided, zNotProvided;
 
+from .cTCPIPConnection import cTCPIPConnection;
+
 class cTCPIPException(Exception):
   # this is a flexible base class that can store and report various
   # information related to TCP/IP exceptions. All specific exceptions
   # are based off it, so you can use it as a catch-all class.
-  def __init__(
-    oSelf,
-    sMessage,
+  def __init__(oSelf,
+    sMessage: str,
     *,
-    sbzHost = zNotProvided,
-    sbzIPAddress = zNotProvided,
-    uzPortNumber = zNotProvided,
-    nzTimeoutInSeconds = zNotProvided,
-    ozConnection = zNotProvided,
+    sbzHost: bytes | type(zNotProvided) = zNotProvided,
+    sbzIPAddress: bytes | type(zNotProvided) = zNotProvided,
+    uzPortNumber: int | type(zNotProvided) = zNotProvided,
+    nzTimeoutInSeconds: float | int | type(zNotProvided) = zNotProvided,
+    ozConnection: cTCPIPConnection | type(zNotProvided) = zNotProvided,
   ):
     assert isinstance(sMessage, str), \
         "sMessage must be a str, not %s" % repr(sMessage);
     oSelf.sMessage = sMessage;
-    oSelf.sbzHost = sbzHost;
-    oSelf.sbzIPAddress = sbzIPAddress;
-    oSelf.uzPortNumber = uzPortNumber;
-    oSelf.nzTimeoutInSeconds = nzTimeoutInSeconds;
-    oSelf.ozConnection = ozConnection;
+    if fbIsProvided(sbzHost):
+      oSelf.sbHost = sbzHost;
+    if fbIsProvided(sbzIPAddress):
+      oSelf.sbIPAddress = sbzIPAddress;
+    if fbIsProvided(uzPortNumber):
+      oSelf.uPortNumber = uzPortNumber;
+    if fbIsProvided(nzTimeoutInSeconds):
+      oSelf.nTimeoutInSeconds = nzTimeoutInSeconds;
+    if fbIsProvided(ozConnection):
+      oSelf.oConnection = ozConnection;
     Exception.__init__(oSelf, sMessage);
-  
-  @property
-  def sbHost(oSelf):
-    assert fbIsProvided(oSelf.sbzHost), \
-        "sbzHost is not provided for this exception";
-    return oSelf.sbzHost;
-  
-  @property
-  def sbIPAddress(oSelf):
-    assert fbIsProvided(oSelf.sbzIPAddress), \
-        "sbzIPAddress is not provided for this exception";
-    return oSelf.sbzIPAddress;
-  
-  @property
-  def uPortNumber(oSelf):
-    assert fbIsProvided(oSelf.uzPortNumber), \
-        "uzPortNumber is not provided for this exception";
-    return oSelf.uzPortNumber;
-  
-  @property
-  def nTimeoutInSeconds(oSelf):
-    assert fbIsProvided(oSelf.nzTimeoutInSeconds), \
-        "nzTimeoutInSeconds is not provided for this exception";
-    return oSelf.nzTimeoutInSeconds;
-  
-  @property
-  def oConnection(oSelf):
-    assert fbIsProvided(oSelf.ozConnection), \
-        "ozConnection is not provided for this exception";
-    return oSelf.ozConnection;
   
   def fasDetails(oSelf):
     asDetails = [];
-    if fbIsProvided(oSelf.sbzHost):
-      asDetails += [f"Host: {oSelf.sbzHost}"];
-    if fbIsProvided(oSelf.sbzIPAddress):
-      asDetails += [f"IP address: {oSelf.sbzIPAddress}"];
-    if fbIsProvided(oSelf.uzPortNumber):
-      asDetails += [f"Port Number: {oSelf.uzPortNumber}"];
-    if fbIsProvided(oSelf.nzTimeoutInSeconds):
-      asDetails += [f"Timeout: {oSelf.nzTimeoutInSeconds} seconds"];
-    if fbIsProvided(oSelf.ozConnection):
-      asDetails += [f"Connection: {oSelf.ozConnection}"];
+    if hasattr(oSelf, "sbHost"):
+      asDetails += [f"Host: {oSelf.sbHost}"];
+    if hasattr(oSelf, "sbIPAddress"):
+      asDetails += [f"IP address: {oSelf.sbIPAddress}"];
+    if hasattr(oSelf, "uPortNumber"):
+      asDetails += [f"Port Number: {oSelf.uPortNumber}"];
+    if hasattr(oSelf, "nTimeoutInSeconds"):
+      asDetails += [f"Timeout: {oSelf.nTimeoutInSeconds} seconds"];
+    if hasattr(oSelf, "oConnection"):
+      asDetails += [f"Connection: {oSelf.oConnection}"];
     return asDetails;
 
   def __str__(oSelf):

@@ -10,7 +10,6 @@ heapq
 importlib
 inspect
 linecache
-locale
 math
 msvcrt
 opcode
@@ -18,7 +17,6 @@ platform
 queue
 select
 selectors
-signal
 socket
 ssl
 struct

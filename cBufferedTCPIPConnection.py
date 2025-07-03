@@ -49,7 +49,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     aoConnectionsWithBytesAvailableForReadingOrShutdown = [
       oConnection
       for oConnection in aoConnections
-      if oConnection.bShutdownForReading or oConnection.fbBytesAreAvailableForReading()
+      if oConnection.bIsShutdownForReading or oConnection.fbBytesAreAvailableForReading()
     ];
     if len(aoConnectionsWithBytesAvailableForReadingOrShutdown) == 0:
       cTCPIPConnection.faoWaitUntilReadEventOnPythonSocket(
@@ -59,7 +59,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
       aoConnectionsWithBytesAvailableForReadingOrShutdown = [
         oConnection
         for oConnection in aoConnections
-        if oConnection.bShutdownForReading or oConnection.fbBytesAreAvailableForReading()
+        if oConnection.bIsShutdownForReading or oConnection.fbBytesAreAvailableForReading()
       ];
       assert aoConnectionsWithBytesAvailableForReadingOrShutdown or n0WaitTimeoutInSeconds is not None, \
           "This is not supposed to be possible";
@@ -85,10 +85,10 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     );
   
   @property
-  def bShutdownForReading(oSelf):
+  def bIsShutdownForReading(oSelf):
     # We'll report that the socket allows reading until all bytes have been read from the
     # socket. After that, we'll let the base class decide.
-    return not oSelf.fbBytesAreAvailableForReading() and super(cBufferedTCPIPConnection, oSelf).bShutdownForReading;
+    return not oSelf.fbBytesAreAvailableForReading() and super(cBufferedTCPIPConnection, oSelf).bIsShutdownForReading;
   
   @property
   def bConnected(oSelf):
@@ -181,14 +181,14 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
     return sbBytes;
   
   @ShowDebugOutput
-  def fsbReadBytesUntilDisconnected(oSelf,
+  def fsbReadBytesUntilShutdown(oSelf,
     *,
     u0MaxNumberOfBytes = None,
     n0TimeoutInSeconds = None,
   ):
     sbBytes = oSelf.__sbReadBuffer;
     oSelf.__sbReadBuffer = b"";
-    return sbBytes + super(cBufferedTCPIPConnection, oSelf).fsbReadBytesUntilDisconnected(
+    return sbBytes + super(cBufferedTCPIPConnection, oSelf).fsbReadBytesUntilShutdown(
       u0MaxNumberOfBytes = u0MaxNumberOfBytes,
       n0TimeoutInSeconds = n0TimeoutInSeconds,
     );
@@ -207,7 +207,7 @@ class cBufferedTCPIPConnection(cTCPIPConnection):
         nRemainingWaitTimeInSeconds = max(0, n0EndTime - time.time());
         if (
           not oSelf.fbWaitUntilBytesAreAvailableForReading(nWaitTimeoutInSeconds = nRemainingWaitTimeInSeconds)
-          and not oSelf.bShutdownForReading
+          and not oSelf.bIsShutdownForReading
         ):
           raise cTCPIPDataTimeoutException(
             "Timeout on connection %s while reading after %s seconds." % (

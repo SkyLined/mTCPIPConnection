@@ -427,13 +427,13 @@ class cTransactionalBufferedTCPIPConnection(cBufferedTCPIPConnection):
         "A transaction must be started before bytes can be read from this connection!";
     return super(cTransactionalBufferedTCPIPConnection, oSelf).fsbReadAvailableBytes(*txArguments, **dxArguments);
   
-  def fsbReadBytesUntilDisconnected(oSelf,
+  def fsbReadBytesUntilShutdown(oSelf,
     *,
     u0MaxNumberOfBytes = None,
   ):
     assert oSelf.bInTransaction, \
         "A transaction must be started before bytes can be read from this connection!";
-    return super(cTransactionalBufferedTCPIPConnection, oSelf).fsbReadBytesUntilDisconnected( \
+    return super(cTransactionalBufferedTCPIPConnection, oSelf).fsbReadBytesUntilShutdown( \
         u0MaxNumberOfBytes = u0MaxNumberOfBytes, n0TimeoutInSeconds = oSelf.n0TransactionTimeoutInSeconds);
   
   def fsbReadBytes(oSelf,

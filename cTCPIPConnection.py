@@ -35,18 +35,7 @@ from .fbExceptionMeansSocketAddressIsUnreachable import fbExceptionMeansSocketAd
 from .fbExceptionMeansSocketShutdown import fbExceptionMeansSocketShutdown;
 from .fbExceptionMeansSocketTimeout import fbExceptionMeansSocketTimeout;
 from .fbExceptionMeansNetworkError import fbExceptionMeansNetworkError;
-from .mExceptions import (
-  cTCPIPConnectionDisconnectedException,
-  cTCPIPConnectionRefusedException,
-  cTCPIPConnectionShutdownException,
-  cTCPIPConnectTimeoutException,
-  cTCPIPDataTimeoutException,
-  cTCPIPDNSNameCannotBeResolvedException,
-  cTCPIPException,
-  cTCPIPInvalidAddressException,
-  cTCPIPUnreachableAddressException,
-  cTCPIPNetworkErrorException,
-);
+# To prevent an import loop, classes from mExceptions are imported at the end of this file.
 
 # To turn access to data store in multiple variables into a single transaction, we will create locks.
 # These locks should only ever be locked for a short time; if it is locked for too long, it is considered a "deadlock"
@@ -61,10 +50,6 @@ class cTCPIPConnection(cWithCallbacks):
   bSSLIsSupported = m0SSL is not None;
   n0DefaultConnectTimeoutInSeconds = 5; # How long to try to connect before giving up?
   uDefaultReadChunkSize = 0x100 * 0x400; # How many bytes to try to read if we do not know how many are coming.
-  if m0SSL is not None:
-    tcExceptions = (cTCPIPException, m0SSL.mExceptions.cSSLException);
-  else:
-    tcExceptions = (cTCPIPException,);
 
   @classmethod
   @ShowDebugOutput
@@ -81,7 +66,7 @@ class cTCPIPConnection(cWithCallbacks):
     aoShutdownOrClosedConnections = [];
     doOpenConnections_by_oPythonSocket = {};
     for oConnection in aoConnections:
-      if not oConnection.__fbConnected() or oConnection.__bShutdownForReading:
+      if not oConnection.__fbConnected() or oConnection.__bIsShutdownForReading:
         aoShutdownOrClosedConnections.append(oConnection);
       else:
         if n0WaitTimeoutInSeconds is not None:
@@ -383,8 +368,8 @@ class cTCPIPConnection(cWithCallbacks):
     );
     # We will also keep track of the fact that "fStop" of "fTerminate" has been called.
     oSelf.__bStopping = False;
-    oSelf.__bShutdownForReading = False;
-    oSelf.__bShutdownForWriting = False;
+    oSelf.__bIsShutdownForReading = False;
+    oSelf.__bIsShutdownForWriting = False;
     
     oSelf.txLocalAddress = oPythonSocket.getsockname();
     oSelf.uLocalPortNumber = oSelf.txLocalAddress[1];
@@ -485,11 +470,11 @@ class cTCPIPConnection(cWithCallbacks):
       fShowDebugOutput(oSelf, "Stopping...");
       oSelf.__bStopping = True;
       if oSelf.__fbConnected():
-        if not oSelf.__bShutdownForReading or not oSelf.__bShutdownForWriting:
+        if not oSelf.__bIsShutdownForReading or not oSelf.__bIsShutdownForWriting:
           try:
             oSelf.__fShutdown(
-              bForReading = not oSelf.__bShutdownForReading,
-              bForWriting = not oSelf.__bShutdownForWriting
+              bForReading = not oSelf.__bIsShutdownForReading,
+              bForWriting = not oSelf.__bIsShutdownForWriting
             );
           except cTCPIPConnectionDisconnectedException:
             return;
@@ -509,27 +494,27 @@ class cTCPIPConnection(cWithCallbacks):
     return oSelf.__oTerminatedLock.fbWait(nTimeoutInSeconds);
   
   @property
-  def bShutdownForReading(oSelf):
-    return oSelf.__bShutdownForReading;
+  def bIsShutdownForReading(oSelf):
+    return oSelf.__bIsShutdownForReading;
   
   @property
-  def bShutdownForWriting(oSelf):
-    return oSelf.__bShutdownForWriting;
+  def bIsShutdownForWriting(oSelf):
+    return oSelf.__bIsShutdownForWriting;
   
   def __fHandleShutdownForReading(oSelf):
-    oSelf.__bShutdownForReading = True;
+    oSelf.__bIsShutdownForReading = True;
     if not oSelf.__fbConnected():
       fShowDebugOutput(oSelf, "Connection disconnected.");
-    elif oSelf.__bShutdownForWriting:
+    elif oSelf.__bIsShutdownForWriting:
       fShowDebugOutput(oSelf, "Connection shutdown.");
     else:
       fShowDebugOutput(oSelf, "Connection shutdown for reading.");
   
   def __fHandleShutdownForWriting(oSelf):
-    oSelf.__bShutdownForWriting = True;
+    oSelf.__bIsShutdownForWriting = True;
     if not oSelf.__fbConnected():
       fShowDebugOutput(oSelf, "Connection disconnected.");
-    if not oSelf.__bShutdownForReading:
+    if not oSelf.__bIsShutdownForReading:
       fShowDebugOutput(oSelf, "Connection shutdown.");
     else:
       fShowDebugOutput(oSelf, "Connection shutdown for writing.");
@@ -545,7 +530,7 @@ class cTCPIPConnection(cWithCallbacks):
     if not oSelf.__fbConnected():
       fShowDebugOutput(oSelf, "Disconnected.");
       return True;
-    if oSelf.__bShutdownForReading:
+    if oSelf.__bIsShutdownForReading:
       fShowDebugOutput(oSelf, "Shutdown.");
       return True;
     oSelf.__oPythonSocket.settimeout(0);
@@ -596,15 +581,15 @@ class cTCPIPConnection(cWithCallbacks):
         ),
         ozConnection = oSelf,
       );
-    if bThrowExceptionIfShutdownForReading and oSelf.__bShutdownForReading:
+    if bThrowExceptionIfShutdownForReading and oSelf.__bIsShutdownForReading:
       raise cTCPIPConnectionShutdownException(
         "Connection %s was shutdown for reading%s." % (
           oSelf.fsGetEndPointsAndDirection(),
-          " and writing" if oSelf.__bShutdownForWriting else "",
+          " and writing" if oSelf.__bIsShutdownForWriting else "",
         ),
         ozConnection = oSelf,
       );
-    if bThrowExceptionIfShutdownForWriting and oSelf.__bShutdownForWriting:
+    if bThrowExceptionIfShutdownForWriting and oSelf.__bIsShutdownForWriting:
       raise cTCPIPConnectionShutdownException(
         "Connection %s was shutdown for writing." % (
           oSelf.fsGetEndPointsAndDirection(),
@@ -688,7 +673,7 @@ class cTCPIPConnection(cWithCallbacks):
           if n0RemainingTimeoutInSeconds <= 0:
             break;
       fShowDebugOutput(oSelf, "Read a total of %d bytes." % len(sbBytesRead));
-    if len(sbBytesRead) == 0 and oSelf.__bShutdownForReading:
+    if len(sbBytesRead) == 0 and oSelf.__bIsShutdownForReading:
       fShowDebugOutput(oSelf, "Read nothing: throwing shutdown-for-reading exception...");
       oSelf.__fThrowExceptionIfApplicable(
         bThrowExceptionIfShutdownForReading = True,
@@ -697,7 +682,7 @@ class cTCPIPConnection(cWithCallbacks):
     return sbBytesRead;
   
   @ShowDebugOutput
-  def fsbReadBytesUntilDisconnected(oSelf,
+  def fsbReadBytesUntilShutdown(oSelf,
     u0MaxNumberOfBytes = None,
     n0TimeoutInSeconds = None,
   ):
@@ -813,8 +798,8 @@ class cTCPIPConnection(cWithCallbacks):
     # results; we'll do it anyway but be aware that it does not appear that
     # the remote is notified of the shutdown.
     # Can throw a disconnected exception.
-    bForReading = bForReading and not oSelf.__bShutdownForReading;
-    bForWriting = bForWriting and not oSelf.__bShutdownForWriting;
+    bForReading = bForReading and not oSelf.__bIsShutdownForReading;
+    bForWriting = bForWriting and not oSelf.__bIsShutdownForWriting;
     # If there's nothing to do, do nothing:
     if not bForReading and not bForWriting: return;
     xFlags = (
@@ -832,9 +817,9 @@ class cTCPIPConnection(cWithCallbacks):
       return;
     fShowDebugOutput(oSelf, "Shutting down for %s..." %  sShutdownFor);
     if bForReading:
-      oSelf.__bShutdownForReading = True;
+      oSelf.__bIsShutdownForReading = True;
     if bForWriting:
-      oSelf.__bShutdownForWriting = True;
+      oSelf.__bIsShutdownForWriting = True;
     oSelf.__oPythonSocket.settimeout(0);
     try:
       oSelf.__oPythonSocket.shutdown(xFlags);
@@ -863,8 +848,8 @@ class cTCPIPConnection(cWithCallbacks):
       fShowDebugOutput(oSelf, "Shutting socket down...");
       try:
         oSelf.__fShutdown(
-          bForReading = not oSelf.__bShutdownForReading,
-          bForWriting = not oSelf.__bShutdownForWriting
+          bForReading = not oSelf.__bIsShutdownForReading,
+          bForWriting = not oSelf.__bIsShutdownForWriting
         );
       except cTCPIPConnectionDisconnectedException:
         # A debug message from __fShutdown will have already explained what happened.
@@ -903,8 +888,8 @@ class cTCPIPConnection(cWithCallbacks):
             (oException.__class__.__name__, oException));
         if not fbExceptionMeansSocketDisconnected(oException):
           raise;
-      oSelf.__bShutdownForReading = True;
-      oSelf.__bShutdownForWriting = True;
+      oSelf.__bIsShutdownForReading = True;
+      oSelf.__bIsShutdownForWriting = True;
       oSelf.__oTerminatedLock.fRelease();
     finally:
       oSelf.__oConnectedPropertyAccessLock.fRelease();
@@ -923,16 +908,16 @@ class cTCPIPConnection(cWithCallbacks):
     # This is done without a property lock, so race-conditions exist and it
     # approximates the real values.
     bTerminated = not oSelf.__oTerminatedLock.bLocked;
-    bShutdownForReading = oSelf.__bShutdownForReading;
-    bShutdownForWriting = oSelf.__bShutdownForWriting;
+    bIsShutdownForReading = oSelf.__bIsShutdownForReading;
+    bIsShutdownForWriting = oSelf.__bIsShutdownForWriting;
     bStopping = oSelf.__bStopping and not bTerminated;
     return [s for s in [
       oSelf.fsGetEndPointsAndDirection(),
       (
         "disconnected" if bTerminated else 
-        "shutdown" if bShutdownForWriting and bShutdownForReading else
-        "read-only" if bShutdownForWriting else
-        "write-only" if bShutdownForReading else
+        "shutdown" if bIsShutdownForWriting and bIsShutdownForReading else
+        "read-only" if bIsShutdownForWriting else
+        "write-only" if bIsShutdownForReading else
         "connected"
       ),
       "stopping" if bStopping else None,
@@ -944,3 +929,16 @@ class cTCPIPConnection(cWithCallbacks):
   
   def __str__(oSelf):
     return "%s#%X{%s}" % (oSelf.__class__.__name__, id(oSelf), ", ".join(oSelf.fasGetDetails()));#
+
+from .mExceptions import (
+  cTCPIPConnectionDisconnectedException,
+  cTCPIPConnectionRefusedException,
+  cTCPIPConnectionShutdownException,
+  cTCPIPConnectTimeoutException,
+  cTCPIPDataTimeoutException,
+  cTCPIPDNSNameCannotBeResolvedException,
+  cTCPIPException,
+  cTCPIPInvalidAddressException,
+  cTCPIPUnreachableAddressException,
+  cTCPIPNetworkErrorException,
+);

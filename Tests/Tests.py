@@ -66,21 +66,22 @@ try:
     else:
       oConsole.fOutput(OVERWRITE_FILE, " * ", sFileOrFolderPath, " => %d bytes." % len(s0NewContent));
   
-  bQuick = False;
-  bFull = False;
+  bDebug = False;
+  bRelease = False;
   for sArgument in sys.argv[1:]:
-    if sArgument == "--quick": 
-      bQuick = True;
-    elif sArgument == "--full": 
-      bFull = True;
-    elif sArgument == "--debug": 
-      assert m0DebugOutput, \
-          "This feature requires mDebugOutput!";
-      m0DebugOutput.fEnableDebugOutputForModule(mTCPIPConnection);
+    if sArgument == "--debug": 
+      bDebug = True;
+    elif sArgument == "--release": 
+      bRelease = True;
     else:
       raise AssertionError("Unknown argument %s" % sArgument);
-  assert not bQuick or not bFull, \
-      "Cannot test both quick and full!";
+  
+  if bDebug:
+    assert m0DebugOutput, \
+        "This feature requires mDebugOutput!";
+    m0DebugOutput.fEnableDebugOutputForModule(mTCPIPConnection);
+    if m0SSL is not None:
+      m0DebugOutput.fEnableDebugOutputForModule(m0SSL);
   
   if m0SSL is not None:
     import tempfile;
@@ -89,7 +90,7 @@ try:
     oCertificateAuthority = m0SSL.cCertificateAuthority(sCertificateAuthorityFolderPath, "mSSL Test");
     oConsole.fOutput("  oCertificateAuthority = ", str(oCertificateAuthority));
     if os.path.isdir(sCertificateAuthorityFolderPath):
-      if bQuick:
+      if not bRelease:
         oConsole.fOutput(HEADER, "\u2500\u2500\u2500\u2500 Reset Certificate Authority folder... ", sPadding = "\u2500");
         oCertificateAuthority.fResetCacheFolder(fShowDeleteOrOverwriteFileOrFolder);
       else:
@@ -127,7 +128,7 @@ try:
     fTestConnectionAndAcceptor(mTCPIPConnection.cTransactionalBufferedTCPIPConnection, mTCPIPConnection.cTransactionalBufferedTCPIPConnectionAcceptor, o0ClientSSLContext, o0ServerSSLContext);
   
   if m0SSL is not None:
-    if not bQuick:
+    if bRelease:
       oConsole.fOutput(HEADER, "\u2500\u2500\u2500\u2500 Delete Certificate Authority folder... ", sPadding = "\u2500");
       oCertificateAuthority.fDeleteCacheFolder(fShowDeleteOrOverwriteFileOrFolder);
 except Exception as oException:
